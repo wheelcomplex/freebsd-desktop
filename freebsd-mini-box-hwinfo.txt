@@ -1,0 +1,234 @@
+# uname -a
+FreeBSD freebsd-i5-box.localdomain 10.2-STABLE FreeBSD 10.2-STABLE #0 r292855: Tue Dec 29 06:17:50 UTC 2015     root@releng1.nyi.freebsd.org:/usr/obj/usr/src/sys/GENERIC  amd64
+
+# ----
+# cpuflags clang
+Unknown machine - please send cpuflags details to abs@absd.org
+OS		: 'FreeBSD'
+hw.model	: 'Intel Core i5-4278U CPU @ 2.60GHz'
+hw.machine	: 'amd64'
+hw.machine_arch : 'amd64'
+cpu details	:
+CPU: Intel(R) Core(TM) i5-4278U CPU @ 2.60GHz (2594.06-MHz K8-class CPU)
+  Origin="GenuineIntel"  Id=0x40651  Family=0x6  Model=0x45  Stepping=1
+  Features=0xbfebfbff<FPU,VME,DE,PSE,TSC,MSR,PAE,MCE,CX8,APIC,SEP,MTRR,PGE,MCA,CMOV,PAT,PSE36,CLFLUSH,DTS,ACPI,MMX,FXSR,SSE,SSE2,SS,HTT,TM,PBE>
+  Features2=0x7ffafbbf<SSE3,PCLMULQDQ,DTES64,MON,DS_CPL,VMX,EST,TM2,SSSE3,SDBG,FMA,CX16,xTPR,PDCM,PCID,SSE4.1,SSE4.2,x2APIC,MOVBE,POPCNT,TSCDLT,AESNI,XSAVE,OSXSAVE,AVX,F16C,RDRAND>
+  AMD Features=0x2c100800<SYSCALL,NX,Page1GB,RDTSCP,LM>
+  AMD Features2=0x21<LAHF,ABM>
+  Structured Extended Features=0x27ab<FSGSBASE,TSCADJ,BMI1,AVX2,SMEP,BMI2,ERMS,INVPCID,NFPUSG>
+  XSAVE Features=0x1<XSAVEOPT>
+CPU: Intel(R) Core(TM) i5-4278U CPU @ 2.60GHz (2594.06-MHz K8-class CPU)
+  Origin="GenuineIntel"  Id=0x40651  Family=0x6  Model=0x45  Stepping=1
+  Features=0xbfebfbff<FPU,VME,DE,PSE,TSC,MSR,PAE,MCE,CX8,APIC,SEP,MTRR,PGE,MCA,CMOV,PAT,PSE36,CLFLUSH,DTS,ACPI,MMX,FXSR,SSE,SSE2,SS,HTT,TM,PBE>
+  Features2=0x7ffafbbf<SSE3,PCLMULQDQ,DTES64,MON,DS_CPL,VMX,EST,TM2,SSSE3,SDBG,FMA,CX16,xTPR,PDCM,PCID,SSE4.1,SSE4.2,x2APIC,MOVBE,POPCNT,TSCDLT,AESNI,XSAVE,OSXSAVE,AVX,F16C,RDRAND>
+  AMD Features=0x2c100800<SYSCALL,NX,Page1GB,RDTSCP,LM>
+  AMD Features2=0x21<LAHF,ABM>
+  Structured Extended Features=0x27ab<FSGSBASE,TSCADJ,BMI1,AVX2,SMEP,BMI2,ERMS,INVPCID,NFPUSG>
+  XSAVE Features=0x1<XSAVEOPT>
+CPU: Intel(R) Core(TM) i5-4278U CPU @ 2.60GHz (2594.05-MHz K8-class CPU)
+  Origin="GenuineIntel"  Id=0x40651  Family=0x6  Model=0x45  Stepping=1
+  Features=0xbfebfbff<FPU,VME,DE,PSE,TSC,MSR,PAE,MCE,CX8,APIC,SEP,MTRR,PGE,MCA,CMOV,PAT,PSE36,CLFLUSH,DTS,ACPI,MMX,FXSR,SSE,SSE2,SS,HTT,TM,PBE>
+  Features2=0x7ffafbbf<SSE3,PCLMULQDQ,DTES64,MON,DS_CPL,VMX,EST,TM2,SSSE3,SDBG,FMA,CX16,xTPR,PDCM,PCID,SSE4.1,SSE4.2,x2APIC,MOVBE,POPCNT,TSCDLT,AESNI,XSAVE,OSXSAVE,AVX,F16C,RDRAND>
+  AMD Features=0x2c100800<SYSCALL,NX,Page1GB,RDTSCP,LM>
+  AMD Features2=0x21<LAHF,ABM>
+  Structured Extended Features=0x27ab<FSGSBASE,TSCADJ,BMI1,AVX2,SMEP,BMI2,ERMS,INVPCID,NFPUSG>
+  XSAVE Features=0x1<XSAVEOPT>
+CPU: Intel(R) Core(TM) i5-4278U CPU @ 2.60GHz (2594.05-MHz K8-class CPU)
+  Origin="GenuineIntel"  Id=0x40651  Family=0x6  Model=0x45  Stepping=1
+  Features=0xbfebfbff<FPU,VME,DE,PSE,TSC,MSR,PAE,MCE,CX8,APIC,SEP,MTRR,PGE,MCA,CMOV,PAT,PSE36,CLFLUSH,DTS,ACPI,MMX,FXSR,SSE,SSE2,SS,HTT,TM,PBE>
+  Features2=0x7ffafbbf<SSE3,PCLMULQDQ,DTES64,MON,DS_CPL,VMX,EST,TM2,SSSE3,SDBG,FMA,CX16,xTPR,PDCM,PCID,SSE4.1,SSE4.2,x2APIC,MOVBE,POPCNT,TSCDLT,AESNI,XSAVE,OSXSAVE,AVX,F16C,RDRAND>
+  AMD Features=0x2c100800<SYSCALL,NX,Page1GB,RDTSCP,LM>
+  AMD Features2=0x21<LAHF,ABM>
+  Structured Extended Features=0x27ab<FSGSBASE,TSCADJ,BMI1,AVX2,SMEP,BMI2,ERMS,INVPCID,NFPUSG>
+  XSAVE Features=0x1<XSAVEOPT>
+CPU: Intel(R) Core(TM) i5-4278U CPU @ 2.60GHz (2594.05-MHz K8-class CPU)
+  Origin="GenuineIntel"  Id=0x40651  Family=0x6  Model=0x45  Stepping=1
+  Features=0xbfebfbff<FPU,VME,DE,PSE,TSC,MSR,PAE,MCE,CX8,APIC,SEP,MTRR,PGE,MCA,CMOV,PAT,PSE36,CLFLUSH,DTS,ACPI,MMX,FXSR,SSE,SSE2,SS,HTT,TM,PBE>
+  Features2=0x7ffafbbf<SSE3,PCLMULQDQ,DTES64,MON,DS_CPL,VMX,EST,TM2,SSSE3,SDBG,FMA,CX16,xTPR,PDCM,PCID,SSE4.1,SSE4.2,x2APIC,MOVBE,POPCNT,TSCDLT,AESNI,XSAVE,OSXSAVE,AVX,F16C,RDRAND>
+  AMD Features=0x2c100800<SYSCALL,NX,Page1GB,RDTSCP,LM>
+  AMD Features2=0x21<LAHF,ABM>
+  Structured Extended Features=0x27ab<FSGSBASE,TSCADJ,BMI1,AVX2,SMEP,BMI2,ERMS,INVPCID,NFPUSG>
+  XSAVE Features=0x1<XSAVEOPT>
+-msse3 -mfpmath=sse
+
+#----
+# lspci
+00:00.0 Host bridge: Intel Corporation Haswell-ULT DRAM Controller (rev 09)
+00:02.0 VGA compatible controller: Intel Corporation Haswell-ULT Integrated Graphics Controller (rev 09)
+00:03.0 Audio device: Intel Corporation Haswell-ULT HD Audio Controller (rev 09)
+00:14.0 USB controller: Intel Corporation 8 Series USB xHCI HC (rev 04)
+00:1b.0 Audio device: Intel Corporation 8 Series HD Audio Controller (rev 04)
+00:1c.0 PCI bridge: Intel Corporation 8 Series PCI Express Root Port 1 (rev e4)
+00:1c.2 PCI bridge: Intel Corporation 8 Series PCI Express Root Port 3 (rev e4)
+00:1c.3 PCI bridge: Intel Corporation 8 Series PCI Express Root Port 4 (rev e4)
+00:1c.4 PCI bridge: Intel Corporation 8 Series PCI Express Root Port 5 (rev e4)
+00:1c.5 PCI bridge: Intel Corporation 8 Series PCI Express Root Port 6 (rev e4)
+00:1d.0 USB controller: Intel Corporation 8 Series USB EHCI #1 (rev 04)
+00:1f.0 ISA bridge: Intel Corporation 8 Series LPC Controller (rev 04)
+00:1f.2 SATA controller: Intel Corporation 8 Series SATA Controller 1 [AHCI mode] (rev 04)
+00:1f.3 SMBus: Intel Corporation 8 Series SMBus Controller (rev 04)
+02:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 06)
+03:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 06)
+04:00.0 Network controller: Intel Corporation PRO/Wireless 4965 AG or AGN [Kedron] Network Connection (rev 61)
+05:00.0 Network controller: Qualcomm Atheros AR928X Wireless Network Adapter (PCI-Express) (rev 01)
+# ---
+# lspci -v
+00:00.0 Host bridge: Intel Corporation Haswell-ULT DRAM Controller (rev 09)
+	Subsystem: Intel Corporation Haswell-ULT DRAM Controller
+	Flags: bus master, fast devsel, latency 0
+	Capabilities: [e0] Vendor Specific Information: Len=0c <?>
+
+00:02.0 VGA compatible controller: Intel Corporation Haswell-ULT Integrated Graphics Controller (rev 09) (prog-if 00 [VGA controller])
+	Subsystem: Intel Corporation Haswell-ULT Integrated Graphics Controller
+	Flags: bus master, fast devsel, latency 0, IRQ 16
+	Memory at f7800000 (64-bit, non-prefetchable)
+	Memory at e0000000 (64-bit, prefetchable)
+	I/O ports at f000
+	Capabilities: [90] MSI: Enable- Count=1/1 Maskable- 64bit-
+	Capabilities: [d0] Power Management version 2
+	Capabilities: [a4] PCI Advanced Features
+
+00:03.0 Audio device: Intel Corporation Haswell-ULT HD Audio Controller (rev 09)
+	Subsystem: Intel Corporation Haswell-ULT HD Audio Controller
+	Flags: bus master, fast devsel, latency 0, IRQ 16
+	Memory at f7e14000 (64-bit, non-prefetchable)
+	Capabilities: [50] Power Management version 2
+	Capabilities: [60] MSI: Enable+ Count=1/1 Maskable- 64bit-
+	Capabilities: [70] Express Root Complex Integrated Endpoint, MSI 00
+
+00:14.0 USB controller: Intel Corporation 8 Series USB xHCI HC (rev 04) (prog-if 30 [XHCI])
+	Subsystem: Intel Corporation Apple MacBookAir6,2 / MacBookPro11,1
+	Flags: bus master, medium devsel, latency 0, IRQ 21
+	Memory at f7e00000 (64-bit, non-prefetchable)
+	Capabilities: [70] Power Management version 2
+	Capabilities: [80] MSI: Enable+ Count=1/8 Maskable- 64bit+
+
+00:1b.0 Audio device: Intel Corporation 8 Series HD Audio Controller (rev 04)
+	Subsystem: Intel Corporation Device 7270
+	Flags: bus master, fast devsel, latency 32, IRQ 22
+	Memory at f7e10000 (64-bit, non-prefetchable)
+	Capabilities: [50] Power Management version 3
+	Capabilities: [60] MSI: Enable+ Count=1/1 Maskable- 64bit+
+
+00:1c.0 PCI bridge: Intel Corporation 8 Series PCI Express Root Port 1 (rev e4) (prog-if 00 [Normal decode])
+	Flags: bus master, fast devsel, latency 0, IRQ 16
+	Bus: primary=00, secondary=01, subordinate=01, sec-latency=0
+	Capabilities: [40] Express Root Port (Slot-), MSI 00
+	Capabilities: [80] MSI: Enable- Count=1/1 Maskable- 64bit-
+	Capabilities: [90] Subsystem: Intel Corporation Device 7270
+	Capabilities: [a0] Power Management version 3
+
+00:1c.2 PCI bridge: Intel Corporation 8 Series PCI Express Root Port 3 (rev e4) (prog-if 00 [Normal decode])
+	Flags: bus master, fast devsel, latency 0, IRQ 18
+	Bus: primary=00, secondary=02, subordinate=02, sec-latency=0
+	I/O behind bridge: 0000e000-0000efff
+	Prefetchable memory behind bridge: 00000000f0100000-00000000f01fffff
+	Capabilities: [40] Express Root Port (Slot+), MSI 00
+	Capabilities: [80] MSI: Enable- Count=1/1 Maskable- 64bit-
+	Capabilities: [90] Subsystem: Intel Corporation Device 7270
+	Capabilities: [a0] Power Management version 3
+
+00:1c.3 PCI bridge: Intel Corporation 8 Series PCI Express Root Port 4 (rev e4) (prog-if 00 [Normal decode])
+	Flags: bus master, fast devsel, latency 0, IRQ 19
+	Bus: primary=00, secondary=03, subordinate=03, sec-latency=0
+	I/O behind bridge: 0000d000-0000dfff
+	Prefetchable memory behind bridge: 00000000f0000000-00000000f00fffff
+	Capabilities: [40] Express Root Port (Slot+), MSI 00
+	Capabilities: [80] MSI: Enable- Count=1/1 Maskable- 64bit-
+	Capabilities: [90] Subsystem: Intel Corporation Device 7270
+	Capabilities: [a0] Power Management version 3
+
+00:1c.4 PCI bridge: Intel Corporation 8 Series PCI Express Root Port 5 (rev e4) (prog-if 00 [Normal decode])
+	Flags: bus master, fast devsel, latency 0, IRQ 16
+	Bus: primary=00, secondary=04, subordinate=04, sec-latency=0
+	Memory behind bridge: f7d00000-f7dfffff
+	Capabilities: [40] Express Root Port (Slot+), MSI 00
+	Capabilities: [80] MSI: Enable- Count=1/1 Maskable- 64bit-
+	Capabilities: [90] Subsystem: Intel Corporation Device 7270
+	Capabilities: [a0] Power Management version 3
+
+00:1c.5 PCI bridge: Intel Corporation 8 Series PCI Express Root Port 6 (rev e4) (prog-if 00 [Normal decode])
+	Flags: bus master, fast devsel, latency 0, IRQ 17
+	Bus: primary=00, secondary=05, subordinate=05, sec-latency=0
+	Memory behind bridge: f7c00000-f7cfffff
+	Capabilities: [40] Express Root Port (Slot+), MSI 00
+	Capabilities: [80] MSI: Enable- Count=1/1 Maskable- 64bit-
+	Capabilities: [90] Subsystem: Intel Corporation Device 7270
+	Capabilities: [a0] Power Management version 3
+
+00:1d.0 USB controller: Intel Corporation 8 Series USB EHCI #1 (rev 04) (prog-if 20 [EHCI])
+	Subsystem: Intel Corporation Device 7270
+	Flags: bus master, medium devsel, latency 0, IRQ 23
+	Memory at f7e1a000 (32-bit, non-prefetchable)
+	Capabilities: [50] Power Management version 3
+	Capabilities: [58] Debug port: BAR=1 offset=00a0
+	Capabilities: [98] PCI Advanced Features
+
+00:1f.0 ISA bridge: Intel Corporation 8 Series LPC Controller (rev 04)
+	Subsystem: Intel Corporation Device 7270
+	Flags: bus master, medium devsel, latency 0
+	Capabilities: [e0] Vendor Specific Information: Len=0c <?>
+
+00:1f.2 SATA controller: Intel Corporation 8 Series SATA Controller 1 [AHCI mode] (rev 04) (prog-if 01 [AHCI 1.0])
+	Subsystem: Intel Corporation Device 7270
+	Flags: bus master, 66MHz, medium devsel, latency 0, IRQ 19
+	I/O ports at f0b0
+	I/O ports at f0a0
+	I/O ports at f090
+	I/O ports at f080
+	I/O ports at f060
+	Memory at f7e19000 (32-bit, non-prefetchable)
+	Capabilities: [80] MSI: Enable+ Count=1/1 Maskable- 64bit-
+	Capabilities: [70] Power Management version 3
+	Capabilities: [a8] SATA HBA v1.0
+
+00:1f.3 SMBus: Intel Corporation 8 Series SMBus Controller (rev 04)
+	Subsystem: Intel Corporation Device 7270
+	Flags: medium devsel, IRQ 18
+	Memory at f7e18000 (64-bit, non-prefetchable)
+	I/O ports at f040
+
+02:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 06)
+	Subsystem: Realtek Semiconductor Co., Ltd. Device 0123
+	Flags: bus master, fast devsel, latency 0, IRQ 18
+	I/O ports at e000
+	Memory at f0104000 (64-bit, prefetchable)
+	Memory at f0100000 (64-bit, prefetchable)
+	Capabilities: [40] Power Management version 3
+	Capabilities: [50] MSI: Enable- Count=1/1 Maskable- 64bit+
+	Capabilities: [70] Express Endpoint, MSI 01
+	Capabilities: [b0] MSI-X: Enable+ Count=4 Masked-
+	Capabilities: [d0] Vital Product Data
+
+03:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 06)
+	Subsystem: Realtek Semiconductor Co., Ltd. Device 0123
+	Flags: bus master, fast devsel, latency 0, IRQ 19
+	I/O ports at d000
+	Memory at f0004000 (64-bit, prefetchable)
+	Memory at f0000000 (64-bit, prefetchable)
+	Capabilities: [40] Power Management version 3
+	Capabilities: [50] MSI: Enable- Count=1/1 Maskable- 64bit+
+	Capabilities: [70] Express Endpoint, MSI 01
+	Capabilities: [b0] MSI-X: Enable+ Count=4 Masked-
+	Capabilities: [d0] Vital Product Data
+
+04:00.0 Network controller: Intel Corporation PRO/Wireless 4965 AG or AGN [Kedron] Network Connection (rev 61)
+	Subsystem: Intel Corporation Device 1103
+	Flags: bus master, fast devsel, latency 0, IRQ 16
+	Memory at f7d00000 (64-bit, non-prefetchable)
+	Capabilities: [c8] Power Management version 3
+	Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
+	Capabilities: [e0] Express Endpoint, MSI 00
+
+05:00.0 Network controller: Qualcomm Atheros AR928X Wireless Network Adapter (PCI-Express) (rev 01)
+	Subsystem: Fujitsu Limited. Device 147c
+	Flags: bus master, fast devsel, latency 0, IRQ 16
+	Memory at f7c00000 (64-bit, non-prefetchable)
+	Capabilities: [40] Power Management version 2
+	Capabilities: [50] MSI: Enable- Count=1/1 Maskable- 64bit-
+	Capabilities: [60] Express Legacy Endpoint, MSI 00
+	Capabilities: [90] MSI-X: Enable- Count=1 Masked-
+
+# ----
+
+
