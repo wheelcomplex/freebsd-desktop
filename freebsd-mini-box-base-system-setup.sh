@@ -41,7 +41,7 @@ chmod +x /root/.shrc /root/.cshrc
 pkg bootstrap
 
 # mini pkg
-pkg install -y bash bash-completion sudo pciutils usbutils vim rsync cpuflags axel git wget ca_root_nss subversion
+pkg install -y bash bash-completion sudo pciutils usbutils vim rsync cpuflags axel git wget ca_root_nss subversion pstree
 
 mkdir -p /usr/local/etc/bash_completion.d
 
