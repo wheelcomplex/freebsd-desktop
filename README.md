@@ -5,7 +5,7 @@ my freebsd desktop setup notes
 
 ### base system setup
 
-        https://github.com/wheelcomplex/freebsd-desktop/blob/master/freebsd-mini-box-base-system-setup.sh
+https://github.com/wheelcomplex/freebsd-desktop/blob/master/freebsd-mini-box-base-system-setup.sh
 
 ### gateway/hostapd/softap setup
 
