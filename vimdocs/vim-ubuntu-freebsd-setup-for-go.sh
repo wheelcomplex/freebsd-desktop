@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
 # bootstrap:
-# cd ${HOME} && mkdir -p ${HOME}/tmp/ && wget 'https://raw.githubusercontent.com/wheelcomplex/vimdocs/master/vim-ubuntu-freebsd-setup-for-go.sh' -O ${HOME}/tmp/vim-ubuntu-freebsd-setup-for-go.sh && chmod +x ${HOME}/tmp/vim-ubuntu-freebsd-setup-for-go.sh && ${HOME}/tmp/vim-ubuntu-freebsd-setup-for-go.sh
+# cd ${HOME} && mkdir -p ${HOME}/tmp/ && wget 'https://raw.githubusercontent.com/wheelcomplex/freebsd-desktop/master/vimdocs/vim-ubuntu-freebsd-setup-for-go.sh' -O ${HOME}/tmp/vim-ubuntu-freebsd-setup-for-go.sh && chmod +x ${HOME}/tmp/vim-ubuntu-freebsd-setup-for-go.sh && ${HOME}/tmp/vim-ubuntu-freebsd-setup-for-go.sh
 # update ~/.vimrc only
-# bakdir="${HOME}/vim-back-wheelcomplex/`date +%Y-%m-%d-%H-%M-%S`/" &&mkdir -p "$bakdir"&& cp -a ${HOME}/.vimrc $bakdir/ && wget 'https://raw.githubusercontent.com/wheelcomplex/vimdocs/master/vimrc.txt' -O ${HOME}/.vimrc
+# bakdir="${HOME}/vim-back-wheelcomplex/`date +%Y-%m-%d-%H-%M-%S`/" &&mkdir -p "$bakdir"&& cp -a ${HOME}/.vimrc $bakdir/ && wget 'https://raw.githubusercontent.com/wheelcomplex/freebsd-desktop/master/vimdocs/vimrc.txt' -O ${HOME}/.vimrc
 #
 #
 #
@@ -289,3 +289,4 @@ echo "ALL DONE!"
 cat ${HOME}/tmp/vimdocs/vim-tips.txt
 #cd - >/dev/null 2>&1
 #
+
