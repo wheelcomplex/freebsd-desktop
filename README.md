@@ -4,20 +4,26 @@ my freebsd desktop setup notes
 ## freebsd setup notes
 
 ### base system setup
-        freebsd-mini-box-base-system-setup.sh
+
+        https://github.com/wheelcomplex/freebsd-desktop/blob/master/freebsd-mini-box-base-system-setup.sh
 
 ### gateway/hostapd/softap setup
-        freebsd-mini-box-hostapd-softap-setup.sh
+
+https://github.com/wheelcomplex/freebsd-desktop/blob/master/freebsd-mini-box-hostapd-softap-setup.sh
 
 ### xfce desktop(xfce/virtualbox/fcitx/chromium) setup
-        freebsd-mini-box-desktop-setup.sh
+
+https://github.com/wheelcomplex/freebsd-desktop/blob/master/freebsd-mini-box-desktop-setup.sh
 
 ### hardware informations
-        freebsd-mini-box-hwinfo.txt
+
+https://github.com/wheelcomplex/freebsd-desktop/blob/master/freebsd-mini-box-hwinfo.txt
 
 ## vimdocs
 
 setup vim for Go lang in ubuntu and freebsd
+
+https://github.com/wheelcomplex/freebsd-desktop/blob/master/vimdocs/
 
 ### bootstrap:
 <pre>
