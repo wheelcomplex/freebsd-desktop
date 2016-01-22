@@ -1,0 +1,24 @@
+
+
+1. 新建窗口:（crtl + w） n
+2. 分割窗口:(ctrl + w) s
+3. 垂直分割窗口:(ctrl + w) v
+4. 关闭当前窗口:(ctrl + w) c
+5. 关闭其它窗口:(ctrl + w) o
+6. 向上轮换窗口:(ctrl + w) R
+7. 向下轮换窗口:(crtl + w) r
+8. 使窗口等宽:(crtl + w) =
+9. 使窗口最小化:(ctrl + w) 1_
+10. 使窗口最大化:(crtl + w) _
+11. 使窗口向左最小化:(crtl +w ) 1|
+12. 使窗口向右最大化:(crtl + w) |
+13. 将缓冲区分割到一个窗口中:(crtl + w) ^
+14. 两个窗内容切换:(crtl + w) x
+15. 两个窗横屏变竖屏:(crtl + w) H
+16. 两个窗竖屏变横屏:(crtl + w) K
+
+c+n next complete, c+p previous complete
+
+use command 'git mergetool' to call meld for git conflict merge.
+
+use gitk for git changes list

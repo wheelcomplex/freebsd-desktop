@@ -1,0 +1,10 @@
+#!/bin/bash
+mkdir -p /tmp/meld.git.diff.OLD/ && tmpfile="$2" && mv "$tmpfile" /tmp/meld.git.diff.OLD/ && tmpfile="$(basename $tmpfile)"
+isdiff=`diff "$5" "/tmp/meld.git.diff.OLD/${tmpfile}" 2>&1 | wc -l`
+if [ $isdiff -ne 0 ]
+then
+	meld "$5" "/tmp/meld.git.diff.OLD/${tmpfile}"
+	exit $?
+else
+	exit 0
+fi

@@ -1,0 +1,237 @@
+"
+set shell=/bin/bash
+set number
+" set nonumber
+let mapleader=","
+
+set mouse=v
+set clipboard=unnamed
+set pastetoggle=<F12>
+
+" disable netrw
+" https://github.com/bling/dotvim/issues/4
+"
+let g:loaded_netrw       = 1
+let g:loaded_netrwPlugin = 1
+
+" set ui colors
+colorscheme desert
+" set guifont=Monaco:h16
+
+"
+set nocompatible              " be iMproved, required
+filetype off                  " required
+
+" set the runtime path to include Vundle and initialize
+set rtp+=~/.vim/bundle/Vundle.vim
+call vundle#begin()
+" call vundle#rc()
+" alternatively, pass a path where Vundle should install plugins
+"call vundle#begin('~/some/path/here')
+
+" let Vundle manage Vundle, required
+Plugin 'gmarik/Vundle.vim'
+
+"
+Plugin 'fatih/vim-go'
+"
+Plugin 'Valloric/YouCompleteMe'
+"
+" Tagbar: a class outline viewer for Vim
+Plugin 'majutsushi/tagbar'
+
+" directory tree view
+Plugin 'scrooloose/nerdtree'
+
+"
+" All of your Plugins must be added before the following line
+call vundle#end()            " required
+filetype plugin indent on    " required
+
+" 
+syntax on
+
+" vim-go settings
+let g:go_fmt_command = "goimports"
+au FileType go nmap <Leader>s <Plug>(go-implements)
+au FileType go nmap <Leader>i <Plug>(go-info)
+au FileType go nmap <Leader>gd <Plug>(go-doc)
+au FileType go nmap <Leader>gv <Plug>(go-doc-vertical)
+au FileType go nmap <Leader>gb <Plug>(go-doc-browser)
+" au FileType go nmap <leader>r <Plug>(go-run)
+au FileType go nmap <leader>r :w<CR>:GoRun<CR>
+" au FileType go nmap <leader>b <Plug>(go-build)
+au FileType go nmap <leader>b :w<CR>:GoBuild<CR>
+au FileType go nmap <leader>t <Plug>(go-test)
+au FileType go nmap <leader>c <Plug>(go-coverage)
+au FileType go nmap <Leader>ds <Plug>(go-def-split)
+au FileType go nmap <Leader>dv <Plug>(go-def-vertical)
+au FileType go nmap <Leader>dt <Plug>(go-def-tab)
+au FileType go nmap <Leader>e <Plug>(go-rename)
+" fast package import
+au FileType go nmap <Leader>m :GoImport <C-d>
+au FileType go nmap <F3> :w<CR>:!echo "---------vim go run ---------" && time go build -i % && go run %<CR>
+au FileType go nmap <F4> :w<CR>:!echo "---------vim go build ---------" && time go build -i %<CR>
+au FileType go nmap <F5> :w<CR>:!go install<CR>
+
+" Syntax-highlighting for Functions, Methods and Structs
+let g:go_highlight_functions = 1
+let g:go_highlight_methods   = 1
+let g:go_highlight_structs   = 1
+
+"
+" YouCompleteMe settings 
+let g:ycm_key_list_select_completion = ['', '']
+let g:ycm_key_list_previous_completion = ['', '']
+let g:ycm_key_invoke_completion = '<C-Space>'
+
+"
+" fast preview dot file
+" http://abruzzi.iteye.com/blog/1323064
+" http://blog.sina.com.cn/s/blog_664449ca0100og1k.html
+" http://fatkun.com/2011/05/vim-ctrl-s.html
+" press <F3> to save and show dot file in xdot
+" sudo apt-get -y install xdot
+" cat <<'EOF'>~/bin/fixdot
+" #!/bin/bash
+" dlog(){
+"   echo "$@" >> vdot.log
+" }
+" showlog(){
+"   test ! -f vdot.log && return 0
+"   gedit vdot.log > /dev/null 2>/dev/null &
+"   return 0
+" }
+" dlog "ARGS: $@" >vdot.log
+" test -z "$1" && exit 0
+" test ! -f "$1" && dlog "no found: $1" && showlog && exit 1
+" test ! -s "$1" && dlog "empty file: $1" && showlog && exit 0
+" dot -Txlib $@ >> vdot.log 2>&1
+" exitcode=$?
+" dlog "EXITCODE=$exitcode"
+" vcnt=`cat vdot.log 2>/dev/null | wc -l` 
+" if [ $vcnt -gt 2 ]
+" then
+"   showlog
+" else
+"   dot -Tsvg $1 > $1.svg 2>>vdot.log
+" fi
+" exit $exitcode
+" EOF
+" chmod +x ~/bin/fixdot
+"
+autocmd BufRead,BufNewFile *.dot nmap <F3> :w<CR>:silent !fixdot %<CR><CR><C-l>
+
+
+"
+" NERDTree
+" press <F2> to op/close list
+" o 打开关闭文件或者目录 
+" t 在标签页中打开 
+" T 在后台标签页中打开 
+" ! 执行此文件 
+" p 到上层目录 
+" P 到根目录 
+" K 到第一个节点 
+" J 到最后一个节点 
+" u 打开上层目录 
+" m 显示文件系统菜单（添加、删除、移动操作） 
+" ? 帮助 
+" q/F2 关闭
+let NERDTreeWinPos='left'
+let NERDTreeWinSize=61
+let NERDTreeChDirMode=1
+nmap <F2> :NERDTreeToggle <CR>
+
+"
+
+
+"
+" Tagbar setting
+nmap <F8> :TagbarToggle<CR>
+let g:tagbar_type_go = {
+    \ 'ctagstype' : 'go',
+    \ 'kinds'     : [
+        \ 'p:package',
+        \ 'i:imports:1',
+        \ 'c:constants',
+        \ 'v:variables',
+        \ 't:types',
+        \ 'n:interfaces',
+        \ 'w:fields',
+        \ 'e:embedded',
+        \ 'm:methods',
+        \ 'r:constructor',
+        \ 'f:functions'
+    \ ],
+    \ 'sro' : '.',
+    \ 'kind2scope' : {
+        \ 't' : 'ctype',
+        \ 'n' : 'ntype'
+    \ },
+    \ 'scope2kind' : {
+        \ 'ctype' : 't',
+        \ 'ntype' : 'n'
+    \ },
+    \ 'ctagsbin'  : 'gotags',
+    \ 'ctagsargs' : '-sort -silent'
+    \ }
+
+"
+
+
+" auto reload vimrc when editing it
+autocmd! bufwritepost .vimrc source ~/.vimrc
+
+set nobackup        " no *~ backup files
+
+" disable sound on errors
+set noerrorbells
+set novisualbell
+"   set t_vb=
+"   set tm=500
+
+" TAB setting{
+set expandtab        "replace <TAB> with spaces
+set softtabstop=8
+set shiftwidth=8
+
+au FileType Makefile set noexpandtab
+"}                                  
+
+" status line {
+ set laststatus=2
+ set statusline=\ %{HasPaste()}%<%-15.25(%f%)%m%r%h\ %w\ \ 
+ set statusline+=\ \ \ [%{&ff}/%Y] 
+ set statusline+=\ \ \ %<%20.30(%{hostname()}:%{CurDir()}%)\ 
+ set statusline+=%=%-10.(%l,%c%V%)\ %p%%/%L
+
+function! CurDir()
+    let curdir = substitute(getcwd(), $HOME, "~", "")
+    return curdir
+endfunction
+
+function! HasPaste()
+    if &paste
+        return '[PASTE]'
+    else
+        return ''
+    endif
+endfunction
+
+"}
+
+" insert pair
+" from http://oldj.net/article/vim-parenthesis/
+inoremap ( ()<LEFT>
+inoremap [ []<LEFT>
+inoremap { {}<LEFT>
+" NOTE: <c-[> == <ESC>
+inoremap <c-]> {<ENTER><TAB><ENTER>}<UP><ESC>$a
+
+" move in insert mode
+inoremap <c-h> <LEFT>
+inoremap <c-l> <RIGHT>
+inoremap <c-k> <UP>
+inoremap <c-j> <DOWN>
+" end of pair

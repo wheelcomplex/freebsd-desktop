@@ -1,0 +1,12 @@
+[user]
+	name = YOURNAME
+	email = YOUREMAIL@YOURDOMAIN.com
+[diff]
+	external = meld.git
+[push]
+	default = simple
+[mergetool "meld"]
+	cmd = meld --output \"$MERGED\" \"$LOCAL\" \"$BASE\" \"$REMOTE\"
+[mergetool]
+	trustExitCode = false
+	prompt = false
