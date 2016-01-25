@@ -827,7 +827,7 @@ no nat on $ext_vpn_if proto gre from any to any
 nat on $ext_vpn_if from $lan_net to any -> ($ext_vpn_if)
 
 # redirect only IPv4 web traffic to squid 
-rdr pass on $lan_if inet proto tcp from $lan_net to any port $http_port -> $cache_host port $cache_port
+#rdr pass on $lan_if inet proto tcp from $lan_net to any port $http_port -> $cache_host port $cache_port
 
 #------------------------------------------------------------------------
 # firewall policy
@@ -1040,6 +1040,9 @@ pptpclient:
 #
 
 EOF
+
+# change vpn account info
+# vi /usr/local/etc/mpd5/mpd.conf
 
 
 #

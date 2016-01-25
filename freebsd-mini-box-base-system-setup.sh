@@ -43,6 +43,11 @@ pkg bootstrap
 # mini pkg
 pkg install -y bash bash-completion sudo pciutils usbutils vim rsync cpuflags axel git wget ca_root_nss subversion pstree
 
+#
+# fix: pkg: cached package xxxx: size mismatch, cannot continue
+#
+# pkg update -f
+
 mkdir -p /usr/local/etc/bash_completion.d
 
 wget https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash -O /usr/local/etc/bash_completion.d/git-completion.bash

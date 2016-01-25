@@ -293,16 +293,43 @@ chmod +x ${HOME}/.git-completion.bash
 
 echo 'test -x ${HOME}/.git-completion.bash && . ${HOME}/.git-completion.bash' >> ${HOME}//.env-all
 
+cat <<'EOF' > /usr/local/sbin/pkgloop
+#!/usr/local/bin/bash
+MAXLOOP=128
+if [ "$1" = '-M' -a -n "$2" ]
+then
+	MAXLOOP="$2"
+	shift
+	shift
+fi
 #
 # install applications by root
 #
-while [ : ]
+cnt=0
+exitcode=0
+while [ $cnt -le $MAXLOOP ]
 do
-    pkg install -y virtualbox-ose virtualbox-ose-additions virtualbox-ose-kmod chromium chromium-bsu meld firefox pinentry-curses pinentry-tty
-    test $? -eq 0 && break
-    sleep 3
-    date
+    let cnt=$cnt+1
+    pkg $@
+    exitcode=$?
+    test $exitcode -eq 0 && break
+    echo "`date` LOOP#$cnt: pkg $@"
+    sleep 1
 done
+exit $exitcode
+#
+EOF
+
+chmod +x /usr/local/sbin/pkgloop
+
+#
+# install applications by root
+#
+pkgloop install -y virtualbox-ose virtualbox-ose-additions virtualbox-ose-kmod chromium chromium-bsu meld firefox pinentry-curses pinentry-tty
+
+#
+# install https://github.com/jamiesonbecker/owa-user-agent/ if you access microsoft exchange OWA
+#
 
 #
 
@@ -332,35 +359,38 @@ pw groupmod wheel -m rhinofly
 
 
 #
-# qt4 + liteide + Go
+# qt5 + liteide + Go
 #
 
-# root config, install qt4.8 gcc 4.8
+# root config, install qt5 gcc 4.8
 
-pkg install -y qt4 qt4-qmake gcc
+pkg install -y qt5 qt5-qmake gcc qt5-sqldrivers-mysql qt5-sqldrivers-sqlite3 gdb
+
+# gdb710 for qt debug
+# fix: Dwarf Error: wrong version in compilation unit header (is 4, should be 2)
 
 # The process will require 860 MiB more space.
 # 212 MiB to be downloaded.
 
-test ! -x /usr/local/bin/qmake && ln -s /usr/local/bin/qmake-qt4 /usr/local/bin/qmake
+ln -sf /usr/local/lib/qt5/bin/qmake /usr/local/bin/qmake
 
-export QTDIR="/usr/local/share/qt4/"
+export QTDIR="/usr/local/share/qt5/"
 
-export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/qt4/"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/qt5/"
 
 cat <<'EOF' >> /etc/profile
-# for qt4
-export QTDIR="/usr/local/share/qt4/"
+# for qt5
+export QTDIR="/usr/local/share/qt5/"
 if [ -n "$LD_LIBRARY_PATH" ]
 then
-	export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/qt4/"
+	export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/qt5/"
 else
-	export LD_LIBRARY_PATH="/usr/local/lib/qt4/"
+	export LD_LIBRARY_PATH="/usr/local/lib/qt5/"
 fi
 #
 EOF
 
-# /usr/local/include/qt4
+# /usr/local/include/qt5
 
 
 ##
@@ -418,13 +448,16 @@ GOGCCFLAGS="-fPIC -m64 -pthread -fno-caret-diagnostics -Qunused-arguments -fmess
 CXX="clang++"
 CGO_ENABLED="1"
 
+# install go tools
+go get -v -t golang.org/x/tools/cmd/...
+
 #
 # liteide
 #
 go get -x -v -t github.com/visualfc/gotools
 go get -t github.com/nsf/gocode
 
-export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/qt4/:/home/rhinofly/liteide/bin"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/qt5/:/home/rhinofly/liteide/bin"
 
 # http://stackoverflow.com/questions/30709056/libpng-warning-iccp-not-recognizing-known-srgb-profile-that-has-been-edited
 
