@@ -17,6 +17,29 @@
 15. 两个窗横屏变竖屏:(crtl + w) H
 16. 两个窗竖屏变横屏:(crtl + w) K
 
+c-x c-o for go autocomplete
+
+au FileType go nmap <Leader>s <Plug>(go-implements)
+au FileType go nmap <Leader>i <Plug>(go-info)
+au FileType go nmap <Leader>gd <Plug>(go-doc)
+au FileType go nmap <Leader>gv <Plug>(go-doc-vertical)
+au FileType go nmap <Leader>gb <Plug>(go-doc-browser)
+" au FileType go nmap <leader>r <Plug>(go-run)
+au FileType go nmap <leader>r :w<CR>:GoRun<CR>
+" au FileType go nmap <leader>b <Plug>(go-build)
+au FileType go nmap <leader>b :w<CR>:GoBuild<CR>
+au FileType go nmap <leader>t <Plug>(go-test)
+au FileType go nmap <leader>c <Plug>(go-coverage)
+au FileType go nmap <Leader>ds <Plug>(go-def-split)
+au FileType go nmap <Leader>dv <Plug>(go-def-vertical)
+au FileType go nmap <Leader>dt <Plug>(go-def-tab)
+au FileType go nmap <Leader>e <Plug>(go-rename)
+" fast package import
+au FileType go nmap <Leader>m :GoImport <C-d>
+au FileType go nmap <F3> :w<CR>:!echo "---------vim go run ---------" && time go build -i % && go run %<CR>
+au FileType go nmap <F4> :w<CR>:!echo "---------vim go build ---------" && time go build -i %<CR>
+au FileType go nmap <F5> :w<CR>:!go install<CR>
+
 c+n next complete, c+p previous complete
 
 use command 'git mergetool' to call meld for git conflict merge.

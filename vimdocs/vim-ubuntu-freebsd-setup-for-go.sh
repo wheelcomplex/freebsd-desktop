@@ -200,6 +200,24 @@ if [ $needback -ne 0 ]
     sleep 3
 fi
 
+# install+compile YouCompleteMe
+gcmd="git clone --recursive https://github.com/Valloric/YouCompleteMe.git ${HOME}/.vim/bundle/YouCompleteMe"
+$gcmd
+if [ $? -ne 0 ]
+	then
+	echo "error: git clone Valloric/YouCompleteMe.git failed: $gcmd"
+	exit 1
+fi
+
+cd ${HOME}/.vim/bundle/YouCompleteMe && ./install.py
+if [ $? -ne 0 ]
+	then
+	echo "error: YouCompleteMe compile failed"
+	echo "TIPS: cd ${HOME}/.vim/bundle/YouCompleteMe && git submodule update --init --recursive && ./install.py"
+	echo "TIPS: https://github.com/Valloric/YouCompleteMe"
+	exit 1
+fi
+
 gcmd="git clone https://github.com/gmarik/Vundle.vim ${HOME}/.vim/bundle/Vundle.vim"
 $gcmd
 if [ $? -ne 0 ]
@@ -232,18 +250,6 @@ if [ $? -ne 0 ]
 	exit 1
 fi
 # vim +GoInstallBinaries +qall
-
-# start Vim，and run command :PluginInstall
-# :qall exit vim and compile YouCompleteMe
-
-cd ${HOME}/.vim/bundle/YouCompleteMe && ./install.py
-if [ $? -ne 0 ]
-	then
-	echo "error: YouCompleteMe compile failed"
-	echo "TIPS: cd ${HOME}/.vim/bundle/YouCompleteMe && git submodule update --init --recursive && ./install.py"
-	echo "TIPS: https://github.com/Valloric/YouCompleteMe"
-	exit 1
-fi
 
 touch ${HOME}/.gitconfig > /dev/null 2>&1
 mv ${HOME}/.gitconfig ${HOME}/${backdir}/
