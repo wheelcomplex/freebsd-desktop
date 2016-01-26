@@ -7,6 +7,10 @@
 # https://cooltrainer.org/a-freebsd-desktop-howto/
 
 #
+# TODO: check https://www.banym.de/freebsd/install-freebsd-11-on-thinkpad-t420
+#
+
+#
 # install desktop
 #
 
@@ -75,6 +79,7 @@ EndSection
 Section "Device"
 	Option "AccelMethod" "sna"
 	Identifier  "Card0"
+	#Driver      "intel"
 	Driver      "vesa"
 	BusID       "PCI:0:2:0"
 EndSection
@@ -86,32 +91,32 @@ Section "Screen"
 	SubSection "Display"
 		Viewport   0 0
 		Depth     1
-		Modes "1366x768"
+		#Modes "1366x768"
 	EndSubSection
 	SubSection "Display"
 		Viewport   0 0
 		Depth     4
-		Modes "1366x768"
+		#Modes "1366x768"
 	EndSubSection
 	SubSection "Display"
 		Viewport   0 0
 		Depth     8
-		Modes "1366x768"
+		#Modes "1366x768"
 	EndSubSection
 	SubSection "Display"
 		Viewport   0 0
 		Depth     15
-		Modes "1366x768"
+		#Modes "1366x768"
 	EndSubSection
 	SubSection "Display"
 		Viewport   0 0
 		Depth     16
-		Modes "1366x768"
+		#Modes "1366x768"
 	EndSubSection
 	SubSection "Display"
 		Viewport   0 0
 		Depth     24
-		Modes "1366x768"
+		#Modes "1366x768"
 	EndSubSection
 EndSection
 
