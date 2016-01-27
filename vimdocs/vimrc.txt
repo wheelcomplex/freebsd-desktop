@@ -75,8 +75,8 @@ au FileType go nmap <F4> :w<CR>:!echo "---------vim go build ---------" && time 
 au FileType go nmap <F5> :w<CR>:!go install<CR>
 " location list jump: lne for next, lpr for prev
 " http://www.mattjmorrison.com/today-i-learned/2015/10/07/vim-location.html
-au FileType go nmap <C-k> :lne<CR>
-au FileType go nmap <C-j> :lpr<CR>
+au FileType go nmap <C-j> :lne<CR>
+au FileType go nmap <C-k> :lpr<CR>
 set errorformat=%f\|%l\|%c
 " know issue: filetype base set errorformat will break GoBuild output
 " autocmd BufNewFile,BufRead *.go set errorformat=%f\|%l\|%c
