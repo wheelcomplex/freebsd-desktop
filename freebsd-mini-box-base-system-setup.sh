@@ -50,8 +50,11 @@ pkg install -y bash bash-completion sudo pciutils usbutils vim rsync cpuflags ax
 
 mkdir -p /usr/local/etc/bash_completion.d
 
+# git completion
 wget https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash -O /usr/local/etc/bash_completion.d/git-completion.bash
-chmod +x /usr/local/etc/bash_completion.d/git-completion.bash
+
+# zfs completion
+wget https://raw.githubusercontent.com/zfsonlinux/zfs/master/contrib/bash_completion.d/zfs -O /usr/local/etc/bash_completion.d/zfs
 
 # devel/cpuflags
 

@@ -243,6 +243,8 @@ cat <<'EOF' >> /etc/syslog.conf
 #
 EOF
 
+mv /etc/resolv.conf /etc/resolv.conf.orig.$$
+
 cat <<'EOF'>/etc/resolv.conf
 #
 search localdomain
@@ -275,7 +277,7 @@ log-queries
 #
 # enable dhcp server
 #
-dhcp-range=172.236.127.21,172.236.127.30,2400h
+dhcp-range=172.236.127.51,172.236.127.90,2400h
 #
 #
 log-dhcp
@@ -379,14 +381,14 @@ driver=bsd
 #
 # SSID to be used in IEEE 802.11 management frames
 # md5sum h8 from 136
-ssid=e14f38d
+ssid=f14b38s65d
 
 # Country code (ISO/IEC 3166-1).
 country_code=US
 
 # Operation mode (a = IEEE 802.11a, b = IEEE 802.11b, g = IEEE 802.11g)
 hw_mode=g
-channel=6
+channel=3
 wpa=2
 wpa_key_mgmt=WPA-PSK
 wpa_passphrase=13609009086
@@ -1440,6 +1442,7 @@ cat <<'EOF' >> /etc/rc.conf
 # enable mpd pptp server/client
 mpd_enable="YES"
 mpd_flags="-b"
+#
 gateway_enable="YES"
 #
 EOF
