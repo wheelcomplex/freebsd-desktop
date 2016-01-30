@@ -259,9 +259,13 @@ sudo pw groupmod video -m rhinofly 2>/dev/null || sudo pw groupmod wheel -m rhin
 su - rhinofly
 
 #
-# config xfce startup
+# config xfce startup as rhinofly
 #
 
+# fix ssh-copyid: no keys found
+test ! -f .ssh/id_rsa && ssh-keygen
+ssh-add
+ssh-add -L
 
 # for gdm/slim
 
