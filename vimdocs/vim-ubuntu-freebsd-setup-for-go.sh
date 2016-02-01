@@ -178,6 +178,20 @@ fi
 
 echo "setup with Go environment:"
 go env
+gcmd="go get -t -v golang.org/x/tools/cmd/..."
+$gcmd
+if [ $? -ne 0 ]
+then
+	echo "error: $gcmd failed."
+	exit 1
+fi
+gcmd="go install -v golang.org/x/tools/cmd/..."
+$gcmd
+if [ $? -ne 0 ]
+then
+	echo "error: $gcmd failed."
+	exit 1
+fi
 echo "---"
 
 cd ${HOME} 
