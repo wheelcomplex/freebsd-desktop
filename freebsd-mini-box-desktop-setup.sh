@@ -123,6 +123,13 @@ EndSection
 #
 EOF
 
+#
+# check X driver status in X
+#
+glxinfo | grep -C 3 vendor
+glxinfo | grep -C 3 render
+
+glxgears
 
 #########  Do _NOT_ use /etc/ttys to start gdm at boot time.  This will result in gdm
 #########  hanging or restarting constantly. Instead, add gdm_enable="YES" to
