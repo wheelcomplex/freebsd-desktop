@@ -341,7 +341,7 @@ chmod +x /usr/local/sbin/pkgloop
 #
 # install applications by root
 #
-pkgloop install -y virtualbox-ose virtualbox-ose-additions virtualbox-ose-kmod chromium chromium-bsu meld firefox pinentry-curses pinentry-tty
+pkgloop install -y virtualbox-ose virtualbox-ose-additions virtualbox-ose-kmod chromium chromium-bsu meld firefox pinentry-curses pinentry-tty libreoffice
 
 #
 # install https://github.com/jamiesonbecker/owa-user-agent/ if you access microsoft exchange OWA
