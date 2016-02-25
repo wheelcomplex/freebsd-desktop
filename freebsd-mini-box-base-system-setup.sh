@@ -48,6 +48,39 @@ pkg install -y bash bash-completion sudo pciutils usbutils vim rsync cpuflags ax
 #
 # pkg update -f
 
+#
+
+cat <<'EOF' > /usr/local/sbin/pkgloop
+#!/usr/local/bin/bash
+MAXLOOP=128
+if [ "$1" = '-M' -a -n "$2" ]
+then
+	MAXLOOP="$2"
+	shift
+	shift
+fi
+#
+# install applications by root
+#
+cnt=0
+exitcode=0
+while [ $cnt -le $MAXLOOP ]
+do
+    let cnt=$cnt+1
+    pkg $@
+    exitcode=$?
+    test $exitcode -eq 0 && break
+    echo "`date` LOOP#$cnt: pkg $@"
+    sleep 1
+done
+exit $exitcode
+#
+EOF
+
+chmod +x /usr/local/sbin/pkgloop
+
+#
+
 mkdir -p /usr/local/etc/bash_completion.d
 
 # git completion

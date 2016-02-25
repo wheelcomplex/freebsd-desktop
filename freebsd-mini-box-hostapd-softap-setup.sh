@@ -52,7 +52,7 @@ if_creator(){
         return $?
     ;;
     wlan[0-9]*)
-        # ifconfig wlan0 create wlandev run0
+        # ifconfig wlan0 create wlandev ath0
         echo "$@" | grep -q 'wlanmode hostap'
         if [ $? -eq 0 ]
             then
@@ -205,7 +205,7 @@ EOF
 
 chmod +x /sbin/ifaceboot
 
-/sbin/ifaceboot wlan0 run0 wlanmode hostap up
+/sbin/ifaceboot wlan0 ath0 wlanmode hostap up
 
 /sbin/ifaceboot bridge0 addm em1 addm em2 addm em3 addm wlan0 inet 172.236.127.43/24
 
@@ -214,7 +214,7 @@ chmod +x /sbin/ifaceboot
 # start on boot
 cat <<'EOF' >> /etc/rc.local
 # fix network interface configure in rc.conf
-/sbin/ifaceboot wlan0 run0 wlanmode hostap up
+/sbin/ifaceboot wlan0 ath0 wlanmode hostap up
 #
 /sbin/ifconfig wlan0 txpower 5
 #
@@ -224,7 +224,21 @@ cat <<'EOF' >> /etc/rc.local
 #
 EOF
 
+# for ul80
+cat <<'EOF' >> /etc/rc.local
+#!/bin/sh
+
 #
+# fix network interface configure in rc.conf
+/sbin/ifaceboot wlan0 ath0 wlanmode hostap up
+#
+/sbin/ifconfig wlan0 txpower 5
+#
+
+/sbin/ifaceboot bridge0 addm alc0 addm wlan0 ether 90:e6:ba:2b:e7:7f inet DHCP
+
+#
+EOF
 
 #
 # dnsmasq dhcp server(without dns)
@@ -353,7 +367,7 @@ dmesg | grep -C 10 -i wlan
 
 lspci
 
-# run0: MAC/BBP RT3070 (rev 0x0201), RF RT3020 (MIMO 1T1R), address 10:6f:3f:2c:09:fb
+# ath0: MAC/BBP RT3070 (rev 0x0201), RF RT3020 (MIMO 1T1R), address 10:6f:3f:2c:09:fb
 
 #
 # 03:00.0 Network controller: Qualcomm Atheros AR928X Wireless Network Adapter (PCI-Express) (rev 01)
@@ -793,7 +807,7 @@ logopt = "log"
 ext_if  = "em0"
 ext_vpn_if  = "ng0"
 lan_if  = "bridge0"
-skipped_if = "{ lo, em1, em2, em3, ath0, run0, re0, wlan0 }"
+skipped_if = "{ lo, em1, em2, em3, ath0, ath0, re0, wlan0 }"
 
 # internal network
 lan_net = "{ 172.236.127.0/24 }"

@@ -18,7 +18,9 @@
 # https://www.freebsd.org/doc/handbook/x11.html
 #
 
-pkg install -y xorg xfce gdm gnome3-lite xlockmore
+# pkgloop is a script
+
+pkgloop install -y xorg xfce gdm gnome3-lite xlockmore
 
 #
 
@@ -217,20 +219,20 @@ EOF
 
 source /etc/profile && locale
 
-LANG=en_US.UTF-8
-LC_CTYPE="en_US.UTF-8"
-LC_COLLATE="en_US.UTF-8"
-LC_TIME="en_US.UTF-8"
-LC_NUMERIC="en_US.UTF-8"
-LC_MONETARY="en_US.UTF-8"
-LC_MESSAGES="en_US.UTF-8"
-LC_ALL=en_US.UTF-8
+# LANG=en_US.UTF-8
+# LC_CTYPE="en_US.UTF-8"
+# LC_COLLATE="en_US.UTF-8"
+# LC_TIME="en_US.UTF-8"
+# LC_NUMERIC="en_US.UTF-8"
+# LC_MONETARY="en_US.UTF-8"
+# LC_MESSAGES="en_US.UTF-8"
+# LC_ALL=en_US.UTF-8
 
 #
 # fcitx impout
 #
 
-pkg install -y zh-fcitx zh-fcitx-googlepinyin zh-fcitx-table-extra zh-fcitx-configtool
+pkgloop install -y zh-fcitx zh-fcitx-googlepinyin zh-fcitx-table-extra zh-fcitx-configtool
 
 cat <<'EOF' > /usr/bin/fcitx-autostart
 #!/bin/sh
@@ -271,6 +273,7 @@ su - rhinofly
 
 # fix ssh-copyid: no keys found
 test ! -f .ssh/id_rsa && ssh-keygen
+
 ssh-add
 ssh-add -L
 
@@ -308,35 +311,6 @@ wget https://raw.githubusercontent.com/git/git/master/contrib/completion/git-com
 chmod +x ${HOME}/.git-completion.bash
 
 echo 'test -x ${HOME}/.git-completion.bash && . ${HOME}/.git-completion.bash' >> ${HOME}//.env-all
-
-cat <<'EOF' > /usr/local/sbin/pkgloop
-#!/usr/local/bin/bash
-MAXLOOP=128
-if [ "$1" = '-M' -a -n "$2" ]
-then
-	MAXLOOP="$2"
-	shift
-	shift
-fi
-#
-# install applications by root
-#
-cnt=0
-exitcode=0
-while [ $cnt -le $MAXLOOP ]
-do
-    let cnt=$cnt+1
-    pkg $@
-    exitcode=$?
-    test $exitcode -eq 0 && break
-    echo "`date` LOOP#$cnt: pkg $@"
-    sleep 1
-done
-exit $exitcode
-#
-EOF
-
-chmod +x /usr/local/sbin/pkgloop
 
 #
 # install applications by root
@@ -380,7 +354,7 @@ pw groupmod wheel -m rhinofly
 
 # root config, install qt5 gcc 4.8
 
-pkg install -y qt5 qt5-qmake gcc qt5-sqldrivers-mysql qt5-sqldrivers-sqlite3 gdb
+pkgloop install -y qt5 qt5-qmake gcc qt5-sqldrivers-mysql qt5-sqldrivers-sqlite3 gdb
 
 # gdb710 for qt debug
 # fix: Dwarf Error: wrong version in compilation unit header (is 4, should be 2)
