@@ -808,8 +808,8 @@ logopt = "log"
 ext_if  = "alc0"
 ext_vpn_if  = "ng0"
 lan_if  = "bridge0"
-# skip bridge0 will disable rdr on bridge0
-skipped_if = "{ lo, em1, em2, em3, ath0, ath0, re0, wlan0, bridge0 }"
+
+skipped_if = "{ lo, em1, em2, em3, ath0, ath0, re0, wlan0 }"
 
 # internal network
 lan_net = "{ 172.236.127.0/24 , 172.236.128.0/24 }"
@@ -818,6 +818,10 @@ lan_net = "{ 172.236.127.0/24 , 172.236.128.0/24 }"
 http_port = "80"
 cache_host = "127.0.0.1"
 cache_port = "9080"
+
+dns_port = "53"
+dnscache_host = "127.0.0.1"
+dnscache_port = "53"
 
 #------------------------------------------------------------------------
 # options
@@ -847,6 +851,9 @@ nat on $ext_vpn_if from $lan_net to any -> ($ext_vpn_if)
 # redirect only IPv4 web traffic to squid 
 #rdr pass on $lan_if inet proto tcp from $lan_net to any port $http_port -> $cache_host port $cache_port
 
+# redirect only IPv4 web traffic to squid 
+rdr pass on $lan_if inet proto tcp from $lan_net to any port $dns_port -> $dnscache_host port $dnscache_port
+
 #------------------------------------------------------------------------
 # firewall policy
 #------------------------------------------------------------------------
@@ -873,7 +880,7 @@ pfctl -vnf /etc/pf.conf
 
 pfctl -F nat && pfctl -F queue && pfctl -F rules && pfctl -f /etc/pf.conf && pfctl -s rules && pfctl -s nat && sleep 1 && pfctl -s state
 
-pfctl -s rules && pfctl -s nat && sleep 1 && pfctl -s state
+pfctl -s rules && pfctl -s nat && echo "----" && sleep 1 && pfctl -s state
 
 # pfctl -s all
 
