@@ -627,6 +627,14 @@ http {
 #
 EOF
 
+
+cat <<'EOF' >> /etc/rc.conf
+#
+nginx_enable="YES"
+#
+EOF
+
+
 /usr/local/etc/rc.d/nginx restart;sleep 1;/usr/local/etc/rc.d/nginx status
 
 tail -f /var/log/nginx-access.log /var/log/nginx-error.log &
@@ -640,13 +648,6 @@ http_proxy='' wget -S http://localhost/ -O -
 http_proxy='' wget -S http://127.0.0.1/ -O -
 
 http_proxy='http://127.0.0.1:9080' wget -S --max-redirect=0 http://github.com/ -O -
-
-
-cat <<'EOF' >> /etc/rc.conf
-#
-nginx_enable="YES"
-#
-EOF
 
 #
 
@@ -804,13 +805,14 @@ cat <<'EOF' > /etc/pf.conf
 #
 logopt = "log"
 # interfaces
-ext_if  = "em0"
+ext_if  = "alc0"
 ext_vpn_if  = "ng0"
 lan_if  = "bridge0"
-skipped_if = "{ lo, em1, em2, em3, ath0, ath0, re0, wlan0 }"
+# skip bridge0 will disable rdr on bridge0
+skipped_if = "{ lo, em1, em2, em3, ath0, ath0, re0, wlan0, bridge0 }"
 
 # internal network
-lan_net = "{ 172.236.127.0/24 }"
+lan_net = "{ 172.236.127.0/24 , 172.236.128.0/24 }"
 
 # Transparent Proxy
 http_port = "80"
@@ -871,6 +873,8 @@ pfctl -vnf /etc/pf.conf
 
 pfctl -F nat && pfctl -F queue && pfctl -F rules && pfctl -f /etc/pf.conf && pfctl -s rules && pfctl -s nat && sleep 1 && pfctl -s state
 
+pfctl -s rules && pfctl -s nat && sleep 1 && pfctl -s state
+
 # pfctl -s all
 
 #      -F modifier
@@ -918,7 +922,7 @@ echo "ARGS: $@" >> /root/ipfw.list
 ipfw list >> /root/ipfw.list
 date >> /root/ipfw.list
 
-ext_if="em0"
+ext_if="alc0"
 ext_vpn_if="ng0"
 
 #
