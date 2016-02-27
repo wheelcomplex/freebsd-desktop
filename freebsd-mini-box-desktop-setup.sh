@@ -30,96 +30,142 @@ X -configure && cat /root/xorg.conf.new > /etc/X11/xorg.conf
 
 # /etc/X11/xorg.conf for i5-box, using vesa
 
+# for asus ul80 + dell 2412m
 cat <<'EOF'> /etc/X11/xorg.conf
 #
 Section "ServerLayout"
-	Identifier     "X.org Configured"
-	Screen      0  "Screen0" 0 0
-	#Screen      1  "Screen1" LeftOf "Screen0"
-	InputDevice    "Mouse0" "CorePointer"
-	InputDevice    "Keyboard0" "CoreKeyboard"
+    Identifier     "X.org Configured"
+    Screen      0  "Screen0" 0 0
+    Screen      1  "Screen1" LeftOf "Screen0"
+    InputDevice    "Mouse0" "CorePointer"
+    InputDevice    "Keyboard0" "CoreKeyboard"
 EndSection
 
 Section "Files"
-	ModulePath   "/usr/local/lib/xorg/modules"
-	FontPath     "/usr/local/share/fonts/misc/"
-	FontPath     "/usr/local/share/fonts/TTF/"
-	FontPath     "/usr/local/share/fonts/OTF/"
-	FontPath     "/usr/local/share/fonts/Type1/"
-	FontPath     "/usr/local/share/fonts/100dpi/"
-	FontPath     "/usr/local/share/fonts/75dpi/"
+    ModulePath   "/usr/local/lib/xorg/modules"
+    FontPath     "/usr/local/share/fonts/misc/"
+    FontPath     "/usr/local/share/fonts/TTF/"
+    FontPath     "/usr/local/share/fonts/OTF/"
+    FontPath     "/usr/local/share/fonts/Type1/"
+    FontPath     "/usr/local/share/fonts/100dpi/"
+    FontPath     "/usr/local/share/fonts/75dpi/"
 EndSection
 
 Section "Module"
-	Load "glx"
-	Load "dbe"
-	Load "extmod"
-	Load "dri"
-	Load "record"
-	Load "dri2"
+    Load "glx"
+    Load "dbe"
+    Load "extmod"
+    Load "dri"
+    Load "record"
+    Load "dri2"
 EndSection
 
 Section "InputDevice"
-	Identifier  "Keyboard0"
-	Driver      "kbd"
+    Identifier  "Keyboard0"
+    Driver      "kbd"
 EndSection
 
 Section "InputDevice"
-	Identifier  "Mouse0"
-	Driver      "mouse"
-	Option	    "Protocol" "auto"
-	Option	    "Device" "/dev/sysmouse"
-	Option	    "ZAxisMapping" "4 5 6 7"
+    Identifier  "Mouse0"
+    Driver      "mouse"
+    Option        "Protocol" "auto"
+    Option        "Device" "/dev/sysmouse"
+    Option        "ZAxisMapping" "4 5 6 7"
 EndSection
 
 Section "Monitor"
-	Identifier   "Monitor0"
-	VendorName   "Monitor Vendor"
-	ModelName    "Monitor Model"
+    Identifier   "Monitor0"
+    VendorName   "Monitor Vendor"
+    ModelName    "Monitor Model"
 EndSection
 
 Section "Device"
-	Option "AccelMethod" "sna"
-	Identifier  "Card0"
-	#Driver      "intel"
-	Driver      "vesa"
-	BusID       "PCI:0:2:0"
+    #Option "AccelMethod" "sna"
+    Identifier  "Card0"
+#    Driver      "vesa"
+    Driver      "intel"
+    BusID       "PCI:0:2:0"
 EndSection
 
 Section "Screen"
-	Identifier "Screen0"
-	Device     "Card0"
-	Monitor    "Monitor0"
-	SubSection "Display"
-		Viewport   0 0
-		Depth     1
-		#Modes "1366x768"
-	EndSubSection
-	SubSection "Display"
-		Viewport   0 0
-		Depth     4
-		#Modes "1366x768"
-	EndSubSection
-	SubSection "Display"
-		Viewport   0 0
-		Depth     8
-		#Modes "1366x768"
-	EndSubSection
-	SubSection "Display"
-		Viewport   0 0
-		Depth     15
-		#Modes "1366x768"
-	EndSubSection
-	SubSection "Display"
-		Viewport   0 0
-		Depth     16
-		#Modes "1366x768"
-	EndSubSection
-	SubSection "Display"
-		Viewport   0 0
-		Depth     24
-		#Modes "1366x768"
-	EndSubSection
+    Identifier "Screen0"
+    Device     "Card0"
+    Monitor    "Monitor0"
+    SubSection "Display"
+        Viewport   0 0
+        Depth     1
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     4
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     8
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     15
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     16
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     24
+        #Modes "1366x768"
+    EndSubSection
+EndSection
+
+Section "Monitor"
+    Identifier    "Monitor1"
+    VendorName    "Dell"
+    ModelName    "U2412M"
+    ModeLine    "1920x1200"    154.0 1920 1968 2000 2080 1200 1203 1209 1235 -HSync +VSync
+    Option       "DPMS"          "true"
+    Option       "PreferredMode" "1920x1200"
+EndSection
+
+Section "Screen"
+    Identifier "Screen1"
+    Device     "Card0"
+    Monitor    "Monitor1"
+    SubSection "Display"
+        Viewport   0 0
+        Depth     1
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     4
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     8
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     15
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     16
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     24
+        #Modes "1366x768"
+    EndSubSection
 EndSection
 
 #
@@ -373,9 +419,9 @@ cat <<'EOF' >> /etc/profile
 export QTDIR="/usr/local/share/qt5/"
 if [ -n "$LD_LIBRARY_PATH" ]
 then
-	export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/qt5/"
+    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/qt5/"
 else
-	export LD_LIBRARY_PATH="/usr/local/lib/qt5/"
+    export LD_LIBRARY_PATH="/usr/local/lib/qt5/"
 fi
 #
 EOF
@@ -407,11 +453,11 @@ export GOROOT_BOOTSTRAP=/home/rhinofly/bootstrap.go1.4.3.freebsd-amd64
 cd ~ && git clone https://github.com/golang/go.git && cd go/src && ./all.bash
 
 # --- FAIL: TestInterfaces (0.00s)
-#	interface_test.go:74: route ip+net: invalid network interface name
+#    interface_test.go:74: route ip+net: invalid network interface name
 
 ifi.Name= 
 --- FAIL: TestInterfaces (0.00s)
-	interface_test.go:75: route ip+net: invalid network interface name
+    interface_test.go:75: route ip+net: invalid network interface name
 
 mkdir -p /home/rhinofly/golibs
 
