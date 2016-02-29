@@ -244,3 +244,10 @@ inoremap <c-l> <RIGHT>
 inoremap <c-k> <UP>
 inoremap <c-j> <DOWN>
 " end of pair
+" switch between tabs
+nnoremap <C-Left> :tabprevious<CR>
+nnoremap <C-Right> :tabnext<CR>
+" nnoremap <silent> <A-Left> :execute 'silent! tabmove ' . (tabpagenr()-2)<CR>
+" nnoremap <silent> <A-Right> :execute 'silent! tabmove ' . tabpagenr()<CR>
+" switch between tabs
+
