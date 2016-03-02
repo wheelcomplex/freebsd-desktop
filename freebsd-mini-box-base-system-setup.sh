@@ -37,17 +37,6 @@ echo '[[ $PS1 && -f /usr/local/share/bash-completion/bash_completion.sh ]] && so
 
 chmod +x /root/.shrc /root/.cshrc
 
-
-pkg bootstrap
-
-# mini pkg
-pkg install -y bash bash-completion sudo pciutils usbutils vim rsync cpuflags axel git wget ca_root_nss subversion pstree bind-tools
-
-#
-# fix: pkg: cached package xxxx: size mismatch, cannot continue
-#
-# pkg update -f
-
 #
 
 cat <<'EOF' > /usr/local/sbin/pkgloop
@@ -78,6 +67,16 @@ exit $exitcode
 EOF
 
 chmod +x /usr/local/sbin/pkgloop
+
+pkg bootstrap
+
+# base pkg
+pkgloop install -y bash bash-completion sudo pciutils usbutils vim rsync cpuflags axel git wget ca_root_nss subversion pstree bind-tools pigz gtar
+
+#
+# fix: pkg: cached package xxxx: size mismatch, cannot continue
+#
+# pkg update -f
 
 #
 
@@ -134,8 +133,20 @@ top -I -a -t -S -P
 
 cat <<EOF>> /boot/loader.conf
 #
+# keep system stable
+# https://wiki.freebsd.org/ZFSTuningGuide
+# use 3/4 of total memory
+vm.kmem_size="3G"
+# use 1/2 of total memory
+vfs.zfs.arc_max="2G"
+#disable prefetch for ssd disk
+vfs.zfs.prefetch_disable="1"
+
 # base mod
 #
+zfs_load="YES"
+geom_eli_load="YES"
+
 fdescfs_load="YES"
 linux_load="YES"
 linprocfs_load="YES"
@@ -154,6 +165,83 @@ snd_driver_load="YES"
 EOF
 
 cat /boot/loader.conf
+
+
+#
+#
+# NOTE: overwrite
+#
+
+cat <<'EOF' > /etc/rc.conf
+#
+hostname="yinjiajin-freebsd-devel-001.localdomain"
+
+#
+sshd_enable="YES"
+moused_enable="YES"
+ntpd_enable="YES"
+powerd_enable="YES"
+# Set dumpdev to "AUTO" to enable crash dumps, "NO" to disable
+dumpdev="AUTO"
+zfs_enable="YES"
+
+#
+ntpd_flags="-g"
+syslogd_flags="-ss"
+#
+linux_enable="YES"
+#
+
+#
+ifconfig_em0="inet 10.236.12.201/24"
+defaultrouter="10.236.12.1"
+
+# ether 00:18:2a:e8:39:ea for 10.236.127.43
+#ifconfig_re0="ether 00:18:2a:e8:39:ea DHCP"
+#ifconfig_re0="DHCP"
+#
+
+# https://www.freebsd.org/doc/handbook/network-wireless.html
+
+#### # for hostapd
+#### wlans_run0="wlan0"
+#### ifconfig_wlan0="wlanmode hostap up"
+#### 
+#### #
+#### # https://www.freebsd.org/cgi/man.cgi?query=if_bridge&sektion=4
+#### #
+#### # https://forums.freebsd.org/threads/trying-to-set-up-a-network-bridge-for-dhcp.20287/#post-307943
+#### # for SYNCDHCP
+#### 
+#### # https://www.freebsd.org/doc/handbook/network-bridging.html
+#### ifconfig_em1="up"
+#### ifconfig_em2="up"
+#### ifconfig_em3="up"
+#### 
+#### # new usage of freebsd 11 ?
+#### autobridge_interfaces="bridge0"
+#### autobridge_bridge0="addm em1 addm em2 addm em3 addm wlan0 inet 172.236.127.43/24"
+#### 
+#### #
+#### cloned_interfaces="bridge0"
+#### ifconfig_bridge0="addm em1 addm em2 addm em3 addm wlan0 inet 172.236.127.43/24"
+#### 
+
+# kernel modules
+kld_list="if_bridge bridgestp fdescfs linux linprocfs wlan_xauth snd_driver"
+#
+
+EOF
+
+#
+
+
+# https://www.freebsd.org/cgi/man.cgi?rc.conf(5)
+#     kld_list	 (str) A list of kernel	modules	to load	right after the	local
+#		 disks are mounted.  Loading modules at	this point in the boot
+#		 process is much faster	than doing it via /boot/loader.conf
+#		 for those modules not necessary for mounting local disk.
+
 
 # for linux
 mkdir -p /compat/linux/etc/ /compat/linux/proc
@@ -206,66 +294,7 @@ kern.ipc.shm_allow_removed=1
 #
 EOF
 
-#
-#
-# NOTE: overwrite
-#
-
-cat <<'EOF' > /etc/rc.conf
-#
-hostname="freebsd-i5-box.localdomain"
-
-#
-sshd_enable="YES"
-moused_enable="YES"
-ntpd_enable="YES"
-powerd_enable="YES"
-# Set dumpdev to "AUTO" to enable crash dumps, "NO" to disable
-dumpdev="AUTO"
-zfs_enable="YES"
-
-#
-ntpd_flags="-g"
-syslogd_flags="-ss"
-#
-linux_enable="YES"
-#
-
-# ether 00:18:2a:e8:39:ea for 10.236.127.43
-#ifconfig_re0="ether 00:18:2a:e8:39:ea DHCP"
-ifconfig_re0="DHCP"
-#
-
-# https://www.freebsd.org/doc/handbook/network-wireless.html
-
-#### # for hostapd
-#### wlans_run0="wlan0"
-#### ifconfig_wlan0="wlanmode hostap up"
-#### 
-#### #
-#### # https://www.freebsd.org/cgi/man.cgi?query=if_bridge&sektion=4
-#### #
-#### # https://forums.freebsd.org/threads/trying-to-set-up-a-network-bridge-for-dhcp.20287/#post-307943
-#### # for SYNCDHCP
-#### 
-#### # https://www.freebsd.org/doc/handbook/network-bridging.html
-#### ifconfig_em1="up"
-#### ifconfig_em2="up"
-#### ifconfig_em3="up"
-#### 
-#### # new usage of freebsd 11 ?
-#### autobridge_interfaces="bridge0"
-#### autobridge_bridge0="addm em1 addm em2 addm em3 addm wlan0 inet 172.236.127.43/24"
-#### 
-#### #
-#### cloned_interfaces="bridge0"
-#### ifconfig_bridge0="addm em1 addm em2 addm em3 addm wlan0 inet 172.236.127.43/24"
-#### 
-
-EOF
-
-#
-
+#### ------------------------
 
 #
 # base system source
