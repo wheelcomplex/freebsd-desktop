@@ -71,7 +71,8 @@ chmod +x /usr/local/sbin/pkgloop
 pkg bootstrap
 
 # base pkg
-pkgloop install -y bash bash-completion sudo pciutils usbutils vim rsync cpuflags axel git git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar
+# git included in git-gui
+pkgloop install -y bash bash-completion sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar
 
 #
 # fix: pkg: cached package xxxx: size mismatch, cannot continue
