@@ -10,3 +10,6 @@
 [mergetool]
 	trustExitCode = false
 	prompt = false
+[merge]
+	tool = meld.git
+	prompt = false
