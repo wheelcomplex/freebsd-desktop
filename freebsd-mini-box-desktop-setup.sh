@@ -18,9 +18,9 @@
 # https://www.freebsd.org/doc/handbook/x11.html
 #
 
-# pkgloop is a script
+# pkgloop is alias/script of pkg
 
-pkgloop install -y xorg xfce gdm gnome3-lite xlockmore virtualbox-ose virtualbox-ose-additions virtualbox-ose-kmod chromium chromium-bsu meld firefox pinentry-curses pinentry-tty libreoffice
+pkgloop install -y xorg xfce gdm gnome3-lite xlockmore virtualbox-ose virtualbox-ose-additions virtualbox-ose-kmod chromium chromium-bsu meld firefox pinentry-curses pinentry-tty libreoffice zh-fcitx zh-fcitx-googlepinyin zh-fcitx-table-extra zh-fcitx-configtool
 
 #
 # install https://github.com/jamiesonbecker/owa-user-agent/ if you access microsoft exchange OWA
@@ -279,10 +279,8 @@ source /etc/profile && locale
 # LC_ALL=en_US.UTF-8
 
 #
-# fcitx impout
+# configure fcitx input
 #
-
-pkgloop install -y zh-fcitx zh-fcitx-googlepinyin zh-fcitx-table-extra zh-fcitx-configtool
 
 cat <<'EOF' > /usr/bin/fcitx-autostart
 #!/bin/sh

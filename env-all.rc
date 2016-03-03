@@ -1,0 +1,61 @@
+#!/bin/bash
+
+test -s /etc/profile && . /etc/profile
+
+export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/games:/usr/local/games"
+
+export WORKSPACE="${HOME}/ds/sandspace"
+
+export GOROOT="${WORKSPACE}/go"
+
+GOAUTOOS="`uname -s`"
+GOAUTOARCH="`uname -p`"
+if [ "$GOAUTOARCH" = "x86_64" ]
+then
+    GOAUTOARCH="amd64"
+fi
+# convert to lower-case
+export GOAUTOARCH="${GOAUTOARCH,,}"
+export GOAUTOOS="${GOAUTOOS,,}"
+export GOARCH="$GOAUTOARCH"
+export GOOS="$GOAUTOOS"
+
+export GOBIN="${GOROOT}/bin.${GOAUTOOS}-${GOAUTOARCH}"
+
+export GOPATH="${WORKSPACE}/external/:${WORKSPACE}/golibs/"
+export GOPATHBIN="${WORKSPACE}/external/bin/:${WORKSPACE}/golibs/bin/"
+
+export GOBOOTSTRAPVER='1.7.0'
+export GOROOT_BOOTSTRAP="${WORKSPACE}/bootstrap.go${GOBOOTSTRAPVER}.${GOAUTOOS}-${GOAUTOARCH}"
+
+export CGO_ENABLED=1
+
+export PATH="${HOME}/ds/bin:${HOME}/bin:${GOBIN}:${GOPATHBIN}:${HOME}/.vim-go/:${HOME}/ds/liteide/bin:$PATH"
+
+#export JAVA_HOME="${HOME}/java"
+#
+#export JDK_HOME="${JAVA_HOME}"
+#
+#export IDEA_JDK="${JAVA_HOME}"
+#
+#export PATH="$PATH:${JAVA_HOME}/bin"
+
+#http://golang.org/doc/install/gccgo
+
+#LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
+#unset LIBRARY_PATH
+
+#C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu
+#unset C_INCLUDE_PATH
+
+#CPLUS_INCLUDE_PATH=/usr/include/x86_64-linux-gnu
+#unset CPLUS_INCLUDE_PATH
+
+#export LIBRARY_PATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH
+#unset LIBRARY_PATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH
+
+# need for ctrl-s in vim
+# stty stop ''
+#
+[[ $PS1 && -f /usr/local/share/bash-completion/bash_completion.sh ]] && source /usr/local/share/bash-completion/bash_completion.sh
+test -x ${HOME}/.git-completion.bash && . ${HOME}/.git-completion.bash
