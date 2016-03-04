@@ -31,7 +31,24 @@ cat <<'EOF'>/root/fio-zfs.sh
 #   
 #   #
 #   sudo apt-get -y install fio
-#   
+#
+
+#
+# for kvm on zfs, writethrough+virtio+geli is best
+# vfs.zfs.zil_disable="1" in /boot/loader.conf will got 3-10x speed up(when underlayer zfs has ssd zil cache)
+#
+
+FIO=`which fio`
+if [ -z "$FIO" ]
+then
+    pkg install -y fio
+fi
+FIO=`which fio`
+if [ -z "$FIO" ]
+then
+    echo "error: fio install failed."
+    exit 1
+fi
 #
 echo "$1" | grep -q '^-'
 if [ $? -ne 0 -a -n "$1" ]
@@ -47,6 +64,8 @@ if [ -z "$TESTDIR" ]
 then
     TESTDIR="$(pwd)"
 fi
+
+mkdir -p ${TESTDIR}/testdir || exit 1
 
 cd $TESTDIR || exit 1
 TESTDIR="$(pwd)"
@@ -65,28 +84,43 @@ then
 fi
 
 BLOCKS="4k 8M"
-ENGS="libaio sync"
+ENGS="libaio posixaio solarisaio sync"
 RWS="randread randwrite"
 
 echo "`date` fio test on $TESTDIR with $OPTS ..."
 
-mkdir -p ${TESTDIR}/testdir || exit 1
-
 #### mount fs at ${TESTDIR}
 
 # mount /dev/sdd1 ${TESTDIR} -o noatime,ssd,discard,max_inline=12000,noacl,thread_pool=64,compress=lzo
-
+uname -a| grep -q -i "linux"
+nolinux=$?
+uname -a| grep -q -i "bsd"
+nobsd=$?
+uname -a| grep -q -i "solar"
+nosolar=$?
+test $nobsd -eq 0 && kldload aio
 for block in $BLOCKS
 do
     for rw in $RWS
     do
         for eng in $ENGS
         do
+            if [ $nolinux -eq 1 -a "$eng" = "libaio" ]
+            then
+                #libaio is for linux only
+                continue
+            fi
+            if [ $nosolar -eq 1 -a "$eng" = "solarisaio" ]
+            then
+                #solarisaio is for solaris only
+                continue
+            fi
             fiocmd="fio --rw=$rw --bs=$block --ioengine=$eng $OPTS"
             echo -n "`date` --- $block, $rw, $eng ... "
-            $fiocmd | grep ': io=' | grep ', bw='
+            $fiocmd > /tmp/fio-$$.log 2>&1
             exitcode=$?
-            #echo "`date` --- $fiocmd"
+            cat /tmp/fio-$$.log | grep ': io=' | grep ', bw='
+            echo "`date` --- cd '$TESTDIR' && $fiocmd"
             echo "`date` ---"
             test $exitcode -ne 0 && break
             sleep 1
@@ -97,10 +131,12 @@ do
     test $exitcode -ne 0 && break
     sleep 1
 done
-test $exitcode -ne 0 && echo "`date` end with error code $exitcode"
+test $exitcode -ne 0 && echo " ---- " && cat /tmp/fio-$$.log
+test $exitcode -ne 0 && echo "`date` /tmp/fio-$$.log end with error code $exitcode" && exit $exitcode
+rm -f /tmp/fio-$$.log
 #
 EOF
 
 chmod +x /root/fio-zfs.sh
 
-/root/fio-zfs.sh /tank/migrations/ --direct=0
+/root/fio-zfs.sh /zroot/ --direct=0
