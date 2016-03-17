@@ -44,7 +44,7 @@ if [ `id -u` -eq 0 ]
 	exit 1
 fi
 
-pkginscmd="apt- get install -y"
+pkginscmd="apt-get install -y"
 if [ $isfreebsd -ne 0 ]
 then
         pkginscmd="pkg install -y"
