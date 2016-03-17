@@ -75,7 +75,7 @@ fi
 
 if [ "$VIMSETUPNEW" != 'YES' ]
 then
-	gcmd="git clone https://github.com/wheelcomplex/vimdocs.git ${HOME}/tmp/vimdocs/"
+	gcmd="git clone https://github.com/wheelcomplex/freebsd-desktop.git ${HOME}/tmp/freebsd-desktop/vimdocs/"
 	rm -rf ${HOME}/tmp/vimdocs && mkdir -p ${HOME}/tmp/ && $gcmd
 	if [ $? -ne 0 ]
 		then
@@ -83,7 +83,7 @@ then
 		exit 1
 	fi
     export VIMSETUPNEW='YES'
-    gcmd="${HOME}/tmp/vimdocs/`basename $0`"
+    gcmd="${HOME}/tmp/freebsd-desktop/vimdocs/`basename $0`"
     chmod +x $gcmd
     echo "Run script from git: $gcmd"
     if [ "$DEBUGVIMSETUP" = 'YES' ]
@@ -240,7 +240,7 @@ if [ $? -ne 0 ]
 	exit 1
 fi
 
-gcmd="cp ${HOME}/tmp/vimdocs/vimrc.txt ${HOME}/.vimrc"
+gcmd="cp ${HOME}/tmp/freebsd-desktop/vimdocs/vimrc.txt ${HOME}/.vimrc"
 $gcmd
 if [ $? -ne 0 ]
 	then
@@ -275,7 +275,7 @@ echo ""
 echo ""
 sleep 3
 
-gcmd="cp ${HOME}/tmp/vimdocs/gitconfig.txt ${HOME}/.gitconfig"
+gcmd="cp ${HOME}/tmp/freebsd-desktop/vimdocs/gitconfig.txt ${HOME}/.gitconfig"
 $gcmd
 if [ $? -ne 0 ]
 	then
@@ -286,7 +286,7 @@ fi
 echo "setup /usr/bin/meld.git ..."
 rootgrp='root'
 test $isfreebsd -ne 0 && rootgrp='wheel'
-sudo cp ${HOME}/tmp/vimdocs/meld.git /usr/bin/ && sudo chmod 0655 /usr/bin/meld.git && sudo chown root:$rootgrp /usr/bin/meld.git
+sudo cp ${HOME}/tmp/freebsd-desktop/vimdocs/meld.git /usr/bin/ && sudo chmod 0655 /usr/bin/meld.git && sudo chown root:$rootgrp /usr/bin/meld.git
 if [ $? -ne 0 ]
 	then
 	echo "error: create /usr/bin/meld.git failed."
@@ -306,7 +306,7 @@ else
 fi
 
 echo "ALL DONE!"
-cat ${HOME}/tmp/vimdocs/vim-tips.txt
+cat ${HOME}/tmp/freebsd-desktop/vimdocs/vim-tips.txt
 #cd - >/dev/null 2>&1
 #
 
