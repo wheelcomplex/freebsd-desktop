@@ -20,7 +20,7 @@
 
 # pkgloop is alias/script of pkg
 
-pkgloop install -y xorg xfce gdm gnome3-lite xlockmore virtualbox-ose virtualbox-ose-additions virtualbox-ose-kmod chromium chromium-bsu meld firefox pinentry-curses pinentry-tty libreoffice zh-fcitx zh-fcitx-googlepinyin zh-fcitx-table-extra zh-fcitx-configtool
+sudo pkgloop install -y xorg gdm xfce gnome3-lite xlockmore chromium chromium-bsu meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin zh-fcitx-table-extra zh-fcitx-configtool geany virtualbox-ose virtualbox-ose-additions virtualbox-ose-kmod libreoffice
 
 #
 # install https://github.com/jamiesonbecker/owa-user-agent/ if you access microsoft exchange OWA
@@ -353,6 +353,7 @@ chmod +x ~/.xinitrc
 # rsync -a /home/rhinofly/.config/xfce4/ rhinofly@172.236.127.24:/home/rhinofly/.config/xfce4/ --delete
 
 mkdir -p ${HOME}/.config/autostart/ && cp /usr/local/share/applications/fcitx.desktop  ${HOME}/.config/autostart/
+
 echo '[[ $PS1 && -f /usr/local/share/bash-completion/bash_completion.sh ]] && source /usr/local/share/bash-completion/bash_completion.sh' >> ${HOME}//.env-all
 
 wget https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash -O ${HOME}/.git-completion.bash

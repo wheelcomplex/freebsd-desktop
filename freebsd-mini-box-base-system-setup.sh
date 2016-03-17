@@ -9,6 +9,7 @@
 #
 # use sh for rsync
 #
+
 pw usermod root -s /bin/sh
 
 su -
@@ -75,6 +76,12 @@ pkg bootstrap
 pkgloop install -y bash bash-completion sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar
 
 #
+# rhinofly login with bash
+#
+
+test -x /usr/local/bin/bash && pw usermod rhinofly -s /usr/local/bin/bash
+
+#
 # fix: pkg: cached package xxxx: size mismatch, cannot continue
 #
 # pkg update -f
@@ -126,6 +133,7 @@ camcontrol identify /dev/da0
 # freebsd vs linux
 #
 # strace / truss
+# tar / gtar
 #
 
 top -I -a -t -S -P
@@ -137,36 +145,19 @@ cat <<EOF>> /boot/loader.conf
 # keep system stable
 # https://wiki.freebsd.org/ZFSTuningGuide
 # use 3/4 of total memory
-vm.kmem_size="3G"
+#vm.kmem_size="3G"
 # use 1/2 of total memory
-vfs.zfs.arc_max="2G"
+#vfs.zfs.arc_max="2G"
 #disable prefetch for ssd disk
 vfs.zfs.prefetch_disable="1"
-
-# base mod
-#
-zfs_load="YES"
-geom_eli_load="YES"
-
-fdescfs_load="YES"
-linux_load="YES"
-linprocfs_load="YES"
-#
-# networking
-#
-if_bridge_load="YES"
-bridgestp_load="YES"
-#
-wlan_xauth_load="YES"
 #
 kern.vty=vt
 #
-snd_driver_load="YES"
+# more kernel modules listed in kld_list of /etc/rc.conf
 #
 EOF
 
 cat /boot/loader.conf
-
 
 #
 #
