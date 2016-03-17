@@ -77,7 +77,7 @@ if [ "$VIMSETUPNEW" != 'YES' ]
 then
 	gcmd="git clone https://github.com/wheelcomplex/freebsd-desktop.git ${HOME}/tmp/freebsd-desktop/"
 	echo "$gcmd ..."
-	rm -rf ${HOME}/tmp/vimdocs && mkdir -p ${HOME}/tmp/ && $gcmd
+	rm -rf ${HOME}/tmp/freebsd-desktop && mkdir -p ${HOME}/tmp/ && $gcmd
 	if [ $? -ne 0 ]
 		then
 		echo "error: git clone failed: $gcmd"
