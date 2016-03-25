@@ -151,6 +151,8 @@ cat <<EOF>> /boot/loader.conf
 #disable prefetch for ssd disk
 vfs.zfs.prefetch_disable="1"
 #
+vm.overcommit=2
+#
 kern.vty=vt
 #
 # more kernel modules listed in kld_list of /etc/rc.conf
