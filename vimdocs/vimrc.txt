@@ -35,7 +35,9 @@ Plugin 'gmarik/Vundle.vim'
 "
 Plugin 'fatih/vim-go'
 "
-Plugin 'Valloric/YouCompleteMe'
+
+" Plugin 'Valloric/YouCompleteMe'
+Plugin 'Shougo/neocomplete.vim'
 "
 " Tagbar: a class outline viewer for Vim
 Plugin 'majutsushi/tagbar'
@@ -90,9 +92,9 @@ let g:go_highlight_structs   = 1
 
 "
 " YouCompleteMe settings 
-let g:ycm_key_list_select_completion = ['', '']
-let g:ycm_key_list_previous_completion = ['', '']
-let g:ycm_key_invoke_completion = '<C-Space>'
+" let g:ycm_key_list_select_completion = ['', '']
+" let g:ycm_key_list_previous_completion = ['', '']
+" let g:ycm_key_invoke_completion = '<C-Space>'
 
 "
 " fast preview dot file
@@ -237,6 +239,7 @@ inoremap [ []<LEFT>
 inoremap { {}<LEFT>
 " NOTE: <c-[> == <ESC>
 inoremap <c-]> {<ENTER><TAB><ENTER>}<UP><ESC>$a
+inoremap <c-\> (<ENTER><TAB><ENTER>)<UP><ESC>$a
 
 " move in insert mode
 inoremap <c-h> <LEFT>
