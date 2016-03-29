@@ -337,9 +337,9 @@ pkgloop install -y shadowsocks-libev
 
 cat <<'EOF'>> /etc/rc.local
 # for dns forward
-nohup /usr/local/bin/ss-tunnel -s your-remote-server-ip -p remote-server-port -l 8053 -b 127.0.0.1 -k remote-server-password -m chacha20 -L 8.8.8.8:53 -u -v < /dev/zero >/var/log/ss-dns.log 2>&1 &
+nohup /usr/local/bin/ss-tunnel -s your-remote-server-ip -p remote-server-port -l 8053 -b 127.0.0.1 -t 30 -k remote-server-password -m chacha20 -L 8.8.8.8:53 -u -v < /dev/zero >/var/log/ss-dns.log 2>&1 &
 # for socks-5 client
-nohup /usr/local/bin/ss-local -s your-remote-server-ip -p remote-server-port -l 8080 -b 127.0.0.1 -k remote-server-password -m chacha20 -v < /dev/zero >/var/log/ss-local.log 2>&1 &
+nohup /usr/local/bin/ss-local -s your-remote-server-ip -p remote-server-port -l 8080 -b 127.0.0.1 -t 30 -k remote-server-password -m chacha20 -v < /dev/zero >/var/log/ss-local.log 2>&1 &
 # launch chrome --proxy-server=socks5://127.0.0.1:8080
 EOF
 
