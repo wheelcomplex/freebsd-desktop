@@ -134,7 +134,7 @@ camcontrol identify /dev/da0
 #
 # strace / truss
 # tar / gtar
-#
+# tasksel / cpuset
 
 top -I -a -t -S -P
 
