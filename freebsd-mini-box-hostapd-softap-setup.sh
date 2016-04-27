@@ -84,9 +84,6 @@ wlan_creator(){
         exitcode=${PIPESTATUS[0]}
         test $exitcode -ne 0 && slog "create ${ifname}($ifphyname) wlanmode $ifmode failed" && return $exitcode
     else
-        if [ $ishostap -ne 0 ]; then
-            ${IFCONFIG_CMD} "${ifname}" destroy 2>/dev/null
-        fi
         $IFCONFIG_CMD "${ifname}" create wlandev "$ifphyname" 2>&1 | pipelog
         exitcode=${PIPESTATUS[0]}
         test $exitcode -ne 0 && slog "create ${ifname}($ifphyname) failed" && return $exitcode
@@ -257,6 +254,8 @@ cat <<'EOF' >> /etc/syslog.conf
 #
 EOF
 
+service syslogd restart
+
 mv /etc/resolv.conf /etc/resolv.conf.orig.$$
 
 cat <<'EOF'>/etc/resolv.conf
@@ -285,6 +284,7 @@ server=10.237.8.8
 server=114.114.114.114
 server=8.8.8.8
 server=/google.com/8.8.8.8
+
 all-servers
 #
 log-queries

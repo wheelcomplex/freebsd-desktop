@@ -20,7 +20,7 @@
 
 # pkgloop is alias/script of pkg
 
-sudo pkgloop install -y xorg gdm xfce gnome3-lite xlockmore chromium chromium-bsu meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin zh-fcitx-table-extra zh-fcitx-configtool geany virtualbox-ose virtualbox-ose-additions virtualbox-ose-kmod libreoffice
+sudo pkgloop install -y xorg gdm xfce gnome3-lite xlockmore chromium meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin zh-fcitx-table-extra zh-fcitx-configtool geany virtualbox-ose virtualbox-ose-additions virtualbox-ose-kmod libreoffice
 
 #
 # install https://github.com/jamiesonbecker/owa-user-agent/ if you access microsoft exchange OWA
@@ -33,6 +33,8 @@ cp /etc/X11/xorg.conf /etc/X11/xorg.conf.orig.$$
 X -configure && cat /root/xorg.conf.new > /etc/X11/xorg.conf
 
 # /etc/X11/xorg.conf for i5-box, using vesa
+
+cp /etc/X11/xorg.conf /etc/X11/xorg.conf.orig.$$
 
 # for asus ul80 + dell 2412m
 cat <<'EOF'> /etc/X11/xorg.conf

@@ -10,11 +10,16 @@
 # use sh for rsync
 #
 
+#
+
 pw usermod root -s /bin/sh
 
-su -
+sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -y bash wget sudo && ln -s /usr/local/bin/bash /bin/bash && mount -t fdescfs fdesc /dev/fd
 
-kldload linux
+# allow wheel group sudo
+echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers
+
+bash
 
 cat <<EOF > /root/.profile
 # $FreeBSD: head/etc/root/dot.profile 278616 2015-02-12 05:35:00Z cperciva $
@@ -34,11 +39,17 @@ chmod +x /root/.profile
 
 echo 'setenv SHELL /usr/local/bin/bash && sudo -s' >> /root/.cshrc
 echo 'export SHELL=/usr/local/bin/bash && sudo -s' >> /root/.shrc
-echo '[[ $PS1 && -f /usr/local/share/bash-completion/bash_completion.sh ]] && source /usr/local/share/bash-completion/bash_completion.sh' >> /root/.shrc
+echo 'test -n "$PS1" && test -f /usr/local/share/bash-completion/bash_completion.sh && source /usr/local/share/bash-completion/bash_completion.sh' >> /root/.shrc
 
 chmod +x /root/.shrc /root/.cshrc
 
 #
+# rhinofly login with bash
+#
+
+test -x /usr/local/bin/bash && pw usermod rhinofly -s /usr/local/bin/bash || pw usermod rhinofly -s /bin/sh
+
+mkdir -p /usr/local/sbin/ 
 
 cat <<'EOF' > /usr/local/sbin/pkgloop
 #!/usr/local/bin/bash
@@ -69,17 +80,11 @@ EOF
 
 chmod +x /usr/local/sbin/pkgloop
 
-pkg bootstrap
-
 # base pkg
 # git included in git-gui
-pkgloop install -y bash bash-completion sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar
+pkgloop install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar
 
-#
-# rhinofly login with bash
-#
-
-test -x /usr/local/bin/bash && pw usermod rhinofly -s /usr/local/bin/bash
+pkgloop install -y bash-completion
 
 #
 # fix: pkg: cached package xxxx: size mismatch, cannot continue
@@ -104,12 +109,6 @@ lspci
 
 lsusb
 
-# allow wheel group sudo
-echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers
-
-# for bash
-ln -s /usr/local/bin/bash /bin/bash
-
 # 
 
 kldload snd_driver
@@ -126,6 +125,8 @@ cat /dev/sndstat
 # show disk info
 #
 
+camcontrol devlist
+
 camcontrol identify /dev/da0
 
 
@@ -135,6 +136,7 @@ camcontrol identify /dev/da0
 # strace / truss
 # tar / gtar
 # tasksel / cpuset
+#
 
 top -I -a -t -S -P
 
@@ -159,6 +161,18 @@ kern.vty=vt
 #
 EOF
 
+# OR
+
+cat <<EOF>> /boot/loader.conf
+#
+vm.overcommit=2
+#
+kern.vty=vt
+#
+# more kernel modules listed in kld_list of /etc/rc.conf
+#
+EOF
+
 cat /boot/loader.conf
 
 #
@@ -168,7 +182,7 @@ cat /boot/loader.conf
 
 cat <<'EOF' > /etc/rc.conf
 #
-hostname="yinjiajin-freebsd-devel-001.localdomain"
+hostname="flatbsd-nb.localdomain"
 
 #
 sshd_enable="YES"
@@ -187,8 +201,10 @@ linux_enable="YES"
 #
 
 #
-ifconfig_em0="inet 10.236.12.201/24"
-defaultrouter="10.236.12.1"
+ifconfig_re0="DHCP"
+
+#ifconfig_re0="inet 10.236.12.201/24"
+#defaultrouter="10.236.12.1"
 
 # ether 00:18:2a:e8:39:ea for 10.236.127.43
 #ifconfig_re0="ether 00:18:2a:e8:39:ea DHCP"
