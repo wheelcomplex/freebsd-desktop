@@ -238,12 +238,22 @@ ifconfig_re0="DHCP"
 #### 
 
 # kernel modules
-kld_list="if_bridge bridgestp fdescfs linux linprocfs wlan_xauth snd_driver"
+kld_list="if_bridge bridgestp fdescfs linux linprocfs wlan_xauth snd_driver coretemp"
 #
 
 EOF
 
-#
+# coretemp
+# sysctl -a | grep temperature
+## hw.acpi.thermal.tz0.temperature: 65.1C
+## dev.cpu.7.temperature: 57.1C
+## dev.cpu.6.temperature: 57.1C
+## dev.cpu.5.temperature: 60.1C
+## dev.cpu.4.temperature: 60.1C
+## dev.cpu.3.temperature: 59.1C
+## dev.cpu.2.temperature: 59.1C
+## dev.cpu.1.temperature: 67.1C
+## dev.cpu.0.temperature: 67.1C
 
 
 # https://www.freebsd.org/cgi/man.cgi?rc.conf(5)
@@ -357,6 +367,44 @@ nohup /usr/local/bin/ss-tunnel -s your-remote-server-ip -p remote-server-port -l
 # for socks-5 client
 nohup /usr/local/bin/ss-local -s your-remote-server-ip -p remote-server-port -l 8080 -b 127.0.0.1 -t 30 -k remote-server-password -m chacha20 -v < /dev/zero >/var/log/ss-local.log 2>&1 &
 # launch chrome --proxy-server=socks5://127.0.0.1:8080
+EOF
+
+#
+pkgloop install -y proxychains-ng
+
+#
+cp /usr/local/etc/proxychains.conf /usr/local/etc/proxychains.conf.$$
+#
+cat <<'EOF' > /usr/local/etc/proxychains.conf
+# proxychains.conf  VER 4.x
+#
+#        HTTP, SOCKS4a, SOCKS5 tunneling proxifier with DNS.
+strict_chain
+
+# Quiet mode (no output from library)
+quiet_mode
+
+# Proxy DNS requests - no leak for DNS data
+proxy_dns 
+
+remote_dns_subnet 224
+
+# Some timeouts in milliseconds
+tcp_read_time_out 10000
+tcp_connect_time_out 8000
+
+## RFC1918 Private Address Ranges
+localnet 10.0.0.0/255.0.0.0
+localnet 172.16.0.0/255.240.0.0
+localnet 192.168.0.0/255.255.0.0
+
+#
+[ProxyList]
+# add proxy here ...
+# meanwile
+# defaults set to "ss"
+socks5 	127.0.0.1 8080
+#
 EOF
 
 #
