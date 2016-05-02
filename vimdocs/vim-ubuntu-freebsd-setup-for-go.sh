@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 #
 # bootstrap:
-# cd ${HOME} && mkdir -p ${HOME}/tmp/ && wget 'https://raw.githubusercontent.com/wheelcomplex/freebsd-desktop/master/vimdocs/vim-ubuntu-freebsd-setup-for-go.sh' -O ${HOME}/tmp/vim-ubuntu-freebsd-setup-for-go.sh && chmod +x ${HOME}/tmp/vim-ubuntu-freebsd-setup-for-go.sh && ${HOME}/tmp/vim-ubuntu-freebsd-setup-for-go.sh
-# update ~/.vimrc only
-# bakdir="${HOME}/vim-back-wheelcomplex/`date +%Y-%m-%d-%H-%M-%S`/" &&mkdir -p "$bakdir"&& cp -a ${HOME}/.vimrc $bakdir/ && wget 'https://raw.githubusercontent.com/wheelcomplex/freebsd-desktop/master/vimdocs/vimrc.txt' -O ${HOME}/.vimrc
-#
-#
+# cd ${HOME} && mkdir -p ${HOME}/tmp/ && git clone https://github.com/wheelcomplex/freebsd-desktop.git ${HOME}/tmp/freebsd-desktop/ && ${HOME}/tmp/freebsd-desktop/vimdocs/vim-ubuntu-freebsd-setup-for-go.sh
 #
 # base on https://github.com/yourihua/Documents/blob/master/Vim/Mac%E4%B8%8B%E4%BD%BF%E7%94%A8Vim%E6%90%AD%E5%BB%BAGo%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83.mdown
 #
@@ -72,30 +68,6 @@ then
 		exit 1
 	fi
 fi
-
-if [ "$VIMSETUPNEW" != 'YES' ]
-then
-	gcmd="git clone https://github.com/wheelcomplex/freebsd-desktop.git ${HOME}/tmp/freebsd-desktop/"
-	echo "$gcmd ..."
-	rm -rf ${HOME}/tmp/freebsd-desktop && mkdir -p ${HOME}/tmp/ && $gcmd
-	if [ $? -ne 0 ]
-		then
-		echo "error: git clone failed: $gcmd"
-		exit 1
-	fi
-    export VIMSETUPNEW='YES'
-    gcmd="${HOME}/tmp/freebsd-desktop/vimdocs/`basename $0`"
-    chmod +x $gcmd
-    echo "Run script from git: $gcmd"
-    if [ "$DEBUGVIMSETUP" = 'YES' ]
-    then
-        /bin/bash -x $gcmd $@
-        exit $?
-    fi
-    $gcmd $@
-    exit $?
-fi
-
 
 utils="hg:mercurial cmake vim meld gitk"
 if [ $isfreebsd -ne 0 ]
