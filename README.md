@@ -27,5 +27,5 @@ https://github.com/wheelcomplex/freebsd-desktop/blob/master/vimdocs/
 
 ### bootstrap:
 <pre>
-cd ${HOME} && mkdir -p ${HOME}/tmp/ && git clone https://github.com/wheelcomplex/freebsd-desktop.git ${HOME}/tmp/freebsd-desktop/ && ${HOME}/tmp/freebsd-desktop/vimdocs/vim-ubuntu-free    bsd-setup-for-go.sh
+rm -rf ${HOME}/tmp/freebsd-desktop/ && cd ${HOME} && mkdir -p ${HOME}/tmp/ && git clone https://github.com/wheelcomplex/freebsd-desktop.git ${HOME}/tmp/freebsd-desktop/ && ${HOME}/tmp/freebsd-desktop/vimdocs/vim-ubuntu-free    bsd-setup-for-go.sh
 </pre>

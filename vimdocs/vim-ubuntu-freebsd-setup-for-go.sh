@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # bootstrap:
-# cd ${HOME} && mkdir -p ${HOME}/tmp/ && git clone https://github.com/wheelcomplex/freebsd-desktop.git ${HOME}/tmp/freebsd-desktop/ && ${HOME}/tmp/freebsd-desktop/vimdocs/vim-ubuntu-freebsd-setup-for-go.sh
+# rm -rf ${HOME}/tmp/freebsd-desktop/ && cd ${HOME} && mkdir -p ${HOME}/tmp/ && git clone https://github.com/wheelcomplex/freebsd-desktop.git ${HOME}/tmp/freebsd-desktop/ && ${HOME}/tmp/freebsd-desktop/vimdocs/vim-ubuntu-freebsd-setup-for-go.sh
 #
 # base on https://github.com/yourihua/Documents/blob/master/Vim/Mac%E4%B8%8B%E4%BD%BF%E7%94%A8Vim%E6%90%AD%E5%BB%BAGo%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83.mdown
 #
@@ -185,24 +185,6 @@ if [ $needback -ne 0 ]
     echo ""
     echo ""
     sleep 3
-fi
-
-# install+compile YouCompleteMe
-gcmd="git clone --recursive https://github.com/Valloric/YouCompleteMe.git ${HOME}/.vim/bundle/YouCompleteMe"
-$gcmd
-if [ $? -ne 0 ]
-	then
-	echo "error: git clone Valloric/YouCompleteMe.git failed: $gcmd"
-	exit 1
-fi
-
-cd ${HOME}/.vim/bundle/YouCompleteMe && ./install.py
-if [ $? -ne 0 ]
-	then
-	echo "error: YouCompleteMe compile failed"
-	echo "TIPS: cd ${HOME}/.vim/bundle/YouCompleteMe && git submodule update --init --recursive && ./install.py"
-	echo "TIPS: https://github.com/Valloric/YouCompleteMe"
-	exit 1
 fi
 
 gcmd="git clone https://github.com/gmarik/Vundle.vim ${HOME}/.vim/bundle/Vundle.vim"
