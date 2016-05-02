@@ -58,17 +58,6 @@ if [ $cmdok -eq 0 ]
 	fi
 fi
 
-if [ $isfreebsd -eq 0 ]
-then
-	echo "installing python-dev for YouCompleteMe ..."
-	sudo $pkginscmd python-dev
-	if [ $? -ne 0 ]
-		then
-		echo "error: packages install failed: python-dev"
-		exit 1
-	fi
-fi
-
 utils="hg:mercurial cmake vim meld gitk"
 if [ $isfreebsd -ne 0 ]
 then
