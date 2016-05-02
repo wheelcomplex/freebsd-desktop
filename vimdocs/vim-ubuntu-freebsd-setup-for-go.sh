@@ -58,11 +58,11 @@ if [ $cmdok -eq 0 ]
 	fi
 fi
 
-utils="hg:mercurial cmake vim meld gitk"
+utils="hg:mercurial vim meld gitk"
 if [ $isfreebsd -ne 0 ]
 then
 	# gitk is include in git-gui
-	utils="hg:mercurial cmake vim meld gitk:git-gui"
+	utils="hg:mercurial vim meld gitk:git-gui"
 fi
 
 pkglist=""
@@ -140,20 +140,90 @@ fi
 
 echo "setup with Go environment:"
 go env
-gcmd="go get -t -v golang.org/x/tools/cmd/..."
+gotools='
+golang.org/x/tools/godoc/static
+golang.org/x/tools/benchmark/parse
+golang.org/x/tools/container/intsets
+golang.org/x/tools/go/ast/astutil
+golang.org/x/tools/go/buildutil
+golang.org/x/tools/go/exact
+golang.org/x/tools/cover
+golang.org/x/tools/cmd/digraph
+golang.org/x/tools/cmd/fiximports
+golang.org/x/tools/cmd/benchcmp
+golang.org/x/tools/cmd/cover
+golang.org/x/tools/blog/atom
+golang.org/x/tools/present
+golang.org/x/tools/godoc/vfs
+golang.org/x/tools/go/types
+golang.org/x/tools/godoc/redirect
+golang.org/x/tools/godoc/util
+golang.org/x/tools/godoc/vfs/httpfs
+golang.org/x/tools/godoc/vfs/gatefs
+golang.org/x/tools/godoc/vfs/mapfs
+golang.org/x/tools/blog
+golang.org/x/tools/godoc/vfs/zipfs
+golang.org/x/tools/playground
+golang.org/x/tools/imports
+golang.org/x/tools/refactor/importgraph
+golang.org/x/tools/cmd/gotype
+golang.org/x/tools/cmd/html2article
+golang.org/x/tools/oracle/serial
+golang.org/x/tools/playground/socket
+golang.org/x/tools/cmd/stress
+golang.org/x/tools/cmd/tip
+golang.org/x/tools/cmd/present
+golang.org/x/tools/cmd/vet/whitelist
+golang.org/x/tools/cmd/goimports
+golang.org/x/tools/refactor/eg
+golang.org/x/tools/go/types/typeutil
+golang.org/x/tools/go/loader
+golang.org/x/tools/go/importer
+golang.org/x/tools/go/gcimporter
+golang.org/x/tools/go/ssa
+golang.org/x/tools/refactor/satisfy
+golang.org/x/tools/go/gccgoimporter
+golang.org/x/tools/cmd/vet
+golang.org/x/tools/cmd/stringer
+golang.org/x/tools/cmd/bundle
+golang.org/x/tools/cmd/eg
+golang.org/x/tools/refactor/rename
+golang.org/x/tools/cmd/godex
+golang.org/x/tools/cmd/gomvpkg
+golang.org/x/tools/cmd/gorename
+golang.org/x/tools/go/callgraph
+golang.org/x/tools/go/ssa/ssautil
+golang.org/x/tools/go/ssa/interp
+golang.org/x/tools/go/callgraph/rta
+golang.org/x/tools/go/pointer
+golang.org/x/tools/go/callgraph/cha
+golang.org/x/tools/go/callgraph/static
+golang.org/x/tools/cmd/ssadump
+golang.org/x/tools/godoc/analysis
+golang.org/x/tools/cmd/callgraph
+golang.org/x/tools/oracle
+golang.org/x/tools/godoc
+golang.org/x/tools/cmd/oracle
+golang.org/x/tools/cmd/godoc
+'
+for aaa in $gotools
+do
+    echo "installing $aaa ..."
+gcmd="go get -t -v $aaa"
 $gcmd
 if [ $? -ne 0 ]
 then
 	echo "error: $gcmd failed."
 	exit 1
 fi
-gcmd="go install -v golang.org/x/tools/cmd/..."
+gcmd="go install -v $aaa"
 $gcmd
 if [ $? -ne 0 ]
 then
 	echo "error: $gcmd failed."
 	exit 1
 fi
+done
 echo "---"
 
 cd ${HOME} 
@@ -165,8 +235,9 @@ if [ $? -ne 0 ]
 fi
 needback=`ls -a ${HOME}/.vim* 2>/dev/null|wc -l`
 if [ $needback -ne 0 ]
-	then
-	mv ${HOME}/.vim* "${HOME}/$backdir"
+then
+    mkdir -p ${HOME}/$backdir && \
+    cp -a ${HOME}/.vim* ${HOME}/$backdir/
     test $? -ne 0 && echo "backup to ${HOME}/$backdir failed." && exit 1
     echo ""
     echo ""
@@ -175,6 +246,7 @@ if [ $needback -ne 0 ]
     echo ""
     sleep 3
 fi
+rm -rf ${HOME}/.vim/*
 
 gcmd="git clone https://github.com/gmarik/Vundle.vim ${HOME}/.vim/bundle/Vundle.vim"
 $gcmd
@@ -184,13 +256,28 @@ if [ $? -ne 0 ]
 	exit 1
 fi
 
-gcmd="cp ${HOME}/tmp/freebsd-desktop/vimdocs/vimrc.txt ${HOME}/.vimrc"
-$gcmd
+if [ ! -s ${HOME}/.gitconfig ]
+then
+    touch ${HOME}/.gitconfig > /dev/null 2>&1
+fi
+
+echo "setup /usr/bin/meld.git ..."
+rootgrp='root'
+test $isfreebsd -ne 0 && rootgrp='wheel'
+sudo cp ${HOME}/tmp/freebsd-desktop/vimdocs/meld.git /usr/bin/ && sudo chmod 0655 /usr/bin/meld.git && sudo chown root:$rootgrp /usr/bin/meld.git
 if [ $? -ne 0 ]
 	then
-	echo "error: create .vimrc failed: $gcmd"
+	echo "error: create /usr/bin/meld.git failed."
 	exit 1
 fi
+#
+echo "---"
+echo "    setup gitconfig ..."
+echo "---"
+sleep 3
+touch ${HOME}/.gitconfig && meld ${HOME}/.gitconfig ${HOME}/tmp/freebsd-desktop/vimdocs/gitconfig.txt
+
+touch ${HOME}/.vimrc && meld ${HOME}/.vimrc ${HOME}/tmp/freebsd-desktop/vimdocs/vimrc.txt
 
 gcmd="$vimcmd +PluginInstall +qall"
 $gcmd
@@ -204,49 +291,16 @@ gcmd="$vimcmd +GoInstallBinaries +qall"
 $gcmd
 if [ $? -ne 0 ]
 	then
-	echo "error: +GoInstallBinaries +qall failed: $gcmd"
-	exit 1
+	echo "error: +GoInstallBinaries +qall failed, retry with proxychains: $gcmd"
 fi
 # vim +GoInstallBinaries +qall
 
-touch ${HOME}/.gitconfig > /dev/null 2>&1
-mv ${HOME}/.gitconfig ${HOME}/${backdir}/
-test $? -ne 0 && echo "${HOME}/.gitconfig backup to ${HOME}/$backdir failed." && exit 1
-echo ""
-echo ""
-echo "${HOME}/.gitconfig backup to ${HOME}/$backdir ok"
-echo ""
-echo ""
-sleep 3
-
-gcmd="cp ${HOME}/tmp/freebsd-desktop/vimdocs/gitconfig.txt ${HOME}/.gitconfig"
+gcmd="proxychains $vimcmd +GoInstallBinaries +qall"
 $gcmd
 if [ $? -ne 0 ]
 	then
-	echo "error: create .gitconfig failed: $gcmd"
+	echo "error: +GoInstallBinaries +qall with proxychains failed: $gcmd"
 	exit 1
-fi
-
-echo "setup /usr/bin/meld.git ..."
-rootgrp='root'
-test $isfreebsd -ne 0 && rootgrp='wheel'
-sudo cp ${HOME}/tmp/freebsd-desktop/vimdocs/meld.git /usr/bin/ && sudo chmod 0655 /usr/bin/meld.git && sudo chown root:$rootgrp /usr/bin/meld.git
-if [ $? -ne 0 ]
-	then
-	echo "error: create /usr/bin/meld.git failed."
-	exit 1
-fi
-#
-
-echo "---"
-echo "    setup gitconfig ..."
-echo "---"
-sleep 3
-if [ -s ${HOME}/$backdir/.gitconfig ]
-then
-	meld ${HOME}/.gitconfig ${HOME}/$backdir/.gitconfig
-else
-	$vimcmd ${HOME}/.gitconfig
 fi
 
 echo "ALL DONE!"
