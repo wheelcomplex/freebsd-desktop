@@ -140,6 +140,7 @@ fi
 
 echo "setup with Go environment:"
 go env
+
 gotools='
 golang.org/x/tools/godoc/static
 golang.org/x/tools/benchmark/parse
@@ -155,7 +156,6 @@ golang.org/x/tools/cmd/cover
 golang.org/x/tools/blog/atom
 golang.org/x/tools/present
 golang.org/x/tools/godoc/vfs
-golang.org/x/tools/go/types
 golang.org/x/tools/godoc/redirect
 golang.org/x/tools/godoc/util
 golang.org/x/tools/godoc/vfs/httpfs
@@ -178,7 +178,6 @@ golang.org/x/tools/cmd/goimports
 golang.org/x/tools/refactor/eg
 golang.org/x/tools/go/types/typeutil
 golang.org/x/tools/go/loader
-golang.org/x/tools/go/importer
 golang.org/x/tools/go/gcimporter
 golang.org/x/tools/go/ssa
 golang.org/x/tools/refactor/satisfy
@@ -205,24 +204,44 @@ golang.org/x/tools/oracle
 golang.org/x/tools/godoc
 golang.org/x/tools/cmd/oracle
 golang.org/x/tools/cmd/godoc
+github.com/nsf/gocode
+github.com/alecthomas/gometalinter
+golang.org/x/tools/cmd/goimports
+golang.org/x/tools/cmd/guru
+golang.org/x/tools/cmd/gorename
+github.com/golang/lint/golint
+github.com/kisielk/errcheck
+github.com/jstemmer/gotags
+github.com/klauspost/asmfmt/cmd/asmfmt
+github.com/fatih/motion
+github.com/zmb3/gogetdoc
+golang.org/x/tools/go/types
+golang.org/x/tools/go/importer
 '
+for bbb in 1
+do
 for aaa in $gotools
 do
     echo "installing $aaa ..."
-gcmd="go get -t -v $aaa"
-$gcmd
+gcmd="go get -v $aaa"
+proxychains $gcmd || $gcmd
+if [ $? -ne 0 ]
+then
+	echo "error: $gcmd failed, try to update ..."
+gcmd="go get -u -v $aaa"
+proxychains $gcmd || $gcmd
 if [ $? -ne 0 ]
 then
 	echo "error: $gcmd failed."
-	exit 1
+fi
 fi
 gcmd="go install -v $aaa"
-$gcmd
+proxychains $gcmd || $gcmd
 if [ $? -ne 0 ]
 then
 	echo "error: $gcmd failed."
-	exit 1
 fi
+done
 done
 echo "---"
 
@@ -288,20 +307,13 @@ if [ $? -ne 0 ]
 fi
 
 gcmd="$vimcmd +GoInstallBinaries +qall"
-$gcmd
-if [ $? -ne 0 ]
-	then
-	echo "error: +GoInstallBinaries +qall failed, retry with proxychains: $gcmd"
-fi
-# vim +GoInstallBinaries +qall
-
-gcmd="proxychains $vimcmd +GoInstallBinaries +qall"
-$gcmd
+proxychains $gcmd || $gcmd
 if [ $? -ne 0 ]
 	then
 	echo "error: +GoInstallBinaries +qall with proxychains failed: $gcmd"
 	exit 1
 fi
+# vim +GoInstallBinaries +qall
 
 echo "ALL DONE!"
 cat ${HOME}/tmp/freebsd-desktop/vimdocs/vim-tips.txt
