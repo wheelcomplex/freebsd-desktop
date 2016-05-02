@@ -14,6 +14,9 @@ set pastetoggle=<F12>
 let g:loaded_netrw       = 1
 let g:loaded_netrwPlugin = 1
 
+" for https://github.com/Shougo/neocomplete.vim
+let g:neocomplete#enable_at_startup = 1
+
 " set ui colors
 colorscheme desert
 " set guifont=Monaco:h16
@@ -36,8 +39,9 @@ Plugin 'gmarik/Vundle.vim'
 Plugin 'fatih/vim-go'
 "
 
-" Plugin 'Valloric/YouCompleteMe'
+" https://github.com/Shougo/neocomplete.vim
 Plugin 'Shougo/neocomplete.vim'
+
 "
 " Tagbar: a class outline viewer for Vim
 Plugin 'majutsushi/tagbar'
@@ -83,18 +87,10 @@ set errorformat=%f\|%l\|%c
 " know issue: filetype base set errorformat will break GoBuild output
 " autocmd BufNewFile,BufRead *.go set errorformat=%f\|%l\|%c
 
-
-
 " Syntax-highlighting for Functions, Methods and Structs
 let g:go_highlight_functions = 1
 let g:go_highlight_methods   = 1
 let g:go_highlight_structs   = 1
-
-"
-" YouCompleteMe settings 
-" let g:ycm_key_list_select_completion = ['', '']
-" let g:ycm_key_list_previous_completion = ['', '']
-" let g:ycm_key_invoke_completion = '<C-Space>'
 
 "
 " fast preview dot file
@@ -204,8 +200,8 @@ set novisualbell
 
 " TAB setting{
 set expandtab        "replace <TAB> with spaces
-set softtabstop=8
-set shiftwidth=8
+set softtabstop=4
+set shiftwidth=4
 
 au FileType Makefile set noexpandtab
 "}                                  
