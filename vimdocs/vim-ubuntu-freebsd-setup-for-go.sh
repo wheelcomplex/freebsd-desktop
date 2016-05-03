@@ -291,12 +291,12 @@ if [ $? -ne 0 ]
 fi
 #
 echo "---"
-echo "    setup gitconfig ..."
+echo "    setup .gitconfig .vimrc ..."
 echo "---"
 sleep 3
-touch ${HOME}/.gitconfig && meld ${HOME}/.gitconfig ${HOME}/tmp/freebsd-desktop/vimdocs/gitconfig.txt
+cp ${HOME}/tmp/freebsd-desktop/vimdocs/gitconfig.txt ${HOME}/.gitconfig.tpl && touch ${HOME}/.gitconfig && meld ${HOME}/.gitconfig ${HOME}/.gitconfig.tpl && rm -f ${HOME}/.gitconfig.tpl
 
-touch ${HOME}/.vimrc && meld ${HOME}/.vimrc ${HOME}/tmp/freebsd-desktop/vimdocs/vimrc.txt
+cp ${HOME}/tmp/freebsd-desktop/vimdocs/vimrc.txt ${HOME}/.vimrc.tpl && touch ${HOME}/.vimrc && meld ${HOME}/.vimrc ${HOME}/.vimrc.tpl && rm -f ${HOME}/.vimrc.tpl
 
 gcmd="$vimcmd +PluginInstall +qall"
 $gcmd
