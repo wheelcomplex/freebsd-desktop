@@ -27,6 +27,9 @@ if [ $? -ne 0 ]
 	exit 1
 fi
 
+# stop old daemon
+killall gocode 2>/dev/null
+
 uname -a
 isubuntu=0
 isfreebsd=`uname -s| grep -ic freebsd`
