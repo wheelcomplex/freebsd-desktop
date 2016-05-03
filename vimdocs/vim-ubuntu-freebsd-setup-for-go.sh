@@ -321,6 +321,15 @@ if [ $? -ne 0 ]
 fi
 # vim +GoInstallBinaries +qall
 
+gcmd="$vimcmd +GoUpdateBinaries +qall"
+$gcmd || proxychains $gcmd
+if [ $? -ne 0 ]
+	then
+	echo "error: +GoUpdateBinaries +qall with proxychains failed: $gcmd"
+	exit 1
+fi
+# vim +:GoUpdateBinaries +qall
+
 echo "ALL DONE!"
 cat ${HOME}/tmp/freebsd-desktop/vimdocs/vim-tips.txt
 #cd - >/dev/null 2>&1
