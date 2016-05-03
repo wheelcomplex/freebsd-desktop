@@ -13,6 +13,12 @@ then
     exit $?
 fi
 
+if [ -z "$DISPLAY" ]
+then
+    echo "error: can not run without X DISPLAY"
+    exit 1
+fi
+
 echo "---- sudo test ----"
 sudo true
 if [ $? -ne 0 ]
@@ -141,13 +147,21 @@ fi
 echo "setup with Go environment:"
 go env
 
+# golang.org/x/tools/go/exact
+# golang.org/x/tools/cmd/vet/whitelist
+# golang.org/x/tools/go/gcimporter
+# golang.org/x/tools/go/gccgoimporter
+# golang.org/x/tools/cmd/vet
+# golang.org/x/tools/go/types
+# golang.org/x/tools/go/importer
+
+
 gotools='
 golang.org/x/tools/godoc/static
 golang.org/x/tools/benchmark/parse
 golang.org/x/tools/container/intsets
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/buildutil
-golang.org/x/tools/go/exact
 golang.org/x/tools/cover
 golang.org/x/tools/cmd/digraph
 golang.org/x/tools/cmd/fiximports
@@ -173,16 +187,12 @@ golang.org/x/tools/playground/socket
 golang.org/x/tools/cmd/stress
 golang.org/x/tools/cmd/tip
 golang.org/x/tools/cmd/present
-golang.org/x/tools/cmd/vet/whitelist
 golang.org/x/tools/cmd/goimports
 golang.org/x/tools/refactor/eg
 golang.org/x/tools/go/types/typeutil
 golang.org/x/tools/go/loader
-golang.org/x/tools/go/gcimporter
 golang.org/x/tools/go/ssa
 golang.org/x/tools/refactor/satisfy
-golang.org/x/tools/go/gccgoimporter
-golang.org/x/tools/cmd/vet
 golang.org/x/tools/cmd/stringer
 golang.org/x/tools/cmd/bundle
 golang.org/x/tools/cmd/eg
@@ -215,34 +225,30 @@ github.com/jstemmer/gotags
 github.com/klauspost/asmfmt/cmd/asmfmt
 github.com/fatih/motion
 github.com/zmb3/gogetdoc
-golang.org/x/tools/go/types
-golang.org/x/tools/go/importer
 '
-for bbb in 1
-do
 for aaa in $gotools
 do
     echo "installing $aaa ..."
 gcmd="go get -v $aaa"
-proxychains $gcmd || $gcmd
+$gcmd || proxychains $gcmd
 if [ $? -ne 0 ]
 then
 	echo "error: $gcmd failed, try to update ..."
 gcmd="go get -u -v $aaa"
-proxychains $gcmd || $gcmd
+$gcmd || proxychains $gcmd
 if [ $? -ne 0 ]
 then
 	echo "error: $gcmd failed."
 fi
 fi
 gcmd="go install -v $aaa"
-proxychains $gcmd || $gcmd
+$gcmd || proxychains $gcmd
 if [ $? -ne 0 ]
 then
 	echo "error: $gcmd failed."
 fi
 done
-done
+
 echo "---"
 
 cd ${HOME} 
@@ -307,7 +313,7 @@ if [ $? -ne 0 ]
 fi
 
 gcmd="$vimcmd +GoInstallBinaries +qall"
-proxychains $gcmd || $gcmd
+$gcmd || proxychains $gcmd
 if [ $? -ne 0 ]
 	then
 	echo "error: +GoInstallBinaries +qall with proxychains failed: $gcmd"
