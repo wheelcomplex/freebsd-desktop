@@ -127,8 +127,11 @@ cat /dev/sndstat
 
 camcontrol devlist
 
+# check for TRIM support
 camcontrol identify /dev/da0
 
+# check for TRIM support
+tunefs -p /dev/da0p1
 
 #
 # freebsd vs linux
