@@ -14,7 +14,7 @@
 
 pw usermod root -s /bin/sh
 
-sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -y bash wget sudo && ln -s /usr/local/bin/bash /bin/bash && mount -t fdescfs fdesc /dev/fd
+sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -y bash wget sudo rsync && ln -s /usr/local/bin/bash /bin/bash && mount -t fdescfs fdesc /dev/fd
 
 # allow wheel group sudo
 echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers
@@ -22,6 +22,7 @@ echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers
 bash
 
 cat <<EOF > /root/.profile
+#!/bin/sh
 # $FreeBSD: head/etc/root/dot.profile 278616 2015-02-12 05:35:00Z cperciva $
 #
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:~/bin
@@ -82,7 +83,7 @@ chmod +x /usr/local/sbin/pkgloop
 
 # base pkg
 # git included in git-gui
-pkgloop install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar dot2tex
+pkgloop install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar dot2tex unzip
 
 pkgloop install -y bash-completion
 
@@ -185,7 +186,11 @@ cat /boot/loader.conf
 
 cat <<'EOF' > /etc/rc.conf
 #
-hostname="flatbsd-nb.localdomain"
+hostname="n550jk.localdomain"
+
+# kernel modules
+kld_list="if_bridge bridgestp fdescfs linux linprocfs wlan_xauth snd_driver coretemp"
+#
 
 #
 sshd_enable="YES"
@@ -239,10 +244,6 @@ ifconfig_re0="DHCP"
 #### cloned_interfaces="bridge0"
 #### ifconfig_bridge0="addm em1 addm em2 addm em3 addm wlan0 inet 172.236.127.43/24"
 #### 
-
-# kernel modules
-kld_list="if_bridge bridgestp fdescfs linux linprocfs wlan_xauth snd_driver coretemp"
-#
 
 EOF
 
@@ -305,49 +306,341 @@ chmod +x /etc/rc.local
 
 # TODO: PPPoE/ADSL WAN link
 
+
 #
-# bring root ro bash
+# fuck off bridge in /etc/rc.conf
 #
 
-# for chromium
-cat <<'EOF' >> /etc/sysctl.conf
-# for chromium
-kern.ipc.shm_allow_removed=1
+cat <<'EOF' > /sbin/ifaceboot
+#!/bin/bash
+#
+IFCONFIG_CMD="/sbin/ifconfig"
+DHCPCLIENT_CMD="/sbin/dhclient"
+KLDLOAD="/sbin/kldload"
+
+#
+export IFNAME="$1"
+shift
+
+export LOGCONSOLE='YES'
+
+#
+LOGGER="/usr/bin/logger -p user.notice -t $0"
+
+# do not login
+if [ -z "$USER" ]
+    then
+    LOGCONSOLE=''
+fi
+
+#
+slog(){
+    local msg="$@"
+    test "$LOGCONSOLE" = 'YES' && echo "`date` $0 $msg" >&2
+    $LOGGER "$msg"
+}
+
+#
+pipelog(){
+    local oneline
+    while IFS= read -r oneline
+    do
+        slog "$oneline"
+    done
+}
+
+# if_creator if
+#
+if_creator(){
+    local ifphy="$1"
+    case $IFNAME in
+    bridge[0-9]*)
+        bridge_creator $IFNAME
+        return $?
+    ;;
+    wlan[0-9]*)
+        # ifconfig wlan0 create wlandev ath0
+        echo "$@" | grep -q 'wlanmode hostap'
+        if [ $? -eq 0 ]
+            then
+            wlan_creator $IFNAME $ifphy hostap
+            return $?
+        else
+            wlan_creator $IFNAME $ifphy
+            return $?
+        fi
+    ;;
+    *)
+    ;;
+    esac
+}
+
+# wlan_creator wlanif
+#
+wlan_creator(){
+    slog "if_creator wlan: $@ ..."
+    local ifname="$1"
+    local ifphyname="$2"
+    local ifmode="$3"
+    echo "$ifname" | grep -q 'wlan[0-9]*' || return 127
+    test -n "$ifphyname" || return 127
+    local exitcode=0
+    ${IFCONFIG_CMD} "${ifname}" destroy 2>/dev/null
+    if [ "$ifmode" = 'hostap' ]; then
+        $IFCONFIG_CMD "${ifname}" create wlandev "$ifphyname" wlanmode $ifmode 2>&1 | pipelog
+        exitcode=${PIPESTATUS[0]}
+        test $exitcode -ne 0 && slog "create ${ifname}($ifphyname) wlanmode $ifmode failed" && return $exitcode
+    else
+        $IFCONFIG_CMD "${ifname}" create wlandev "$ifphyname" 2>&1 | pipelog
+        exitcode=${PIPESTATUS[0]}
+        test $exitcode -ne 0 && slog "create ${ifname}($ifphyname) failed" && return $exitcode
+    fi
+    $KLDLOAD wlan_xauth 2>/dev/null
+    return $exitcode
+}
+
+#
+# bridge_creator bridgeif
+#
+bridge_creator(){
+    local ifname="$1"
+    # slog "bridge_creator $ifname ..."
+    echo "$ifname" | grep -q 'bridge[0-9]*' || return 127
+    local index=0
+    index=`echo "$ifname" | awk -F'bridge' '{print $2}'`
+    test -z "$index" && return 127
+    test $index -ge 0 2>/dev/null || return 127
+    local bridx=0
+    local exitcode=0
+    while [ : ]; do
+        brname="bridge${bridx}"
+        ${IFCONFIG_CMD} "${brname}" 2>/dev/null | grep -q -- "${brname}: flags="
+        if [ $? -ne 0 ]; then
+            $IFCONFIG_CMD bridge create 2>&1 | pipelog
+            exitcode=${PIPESTATUS[0]}
+            test $exitcode -ne 0 && slog "create $brname failed" && return $exitcode
+        fi
+        test $bridx -ge $index && break
+        bridx=`expr $bridx + 1`
+    done
+    return $exitcode
+}
+
+#
+
+slog "network interface configure: $IFNAME $@"
+if [ -z "$IFNAME" ]
+then
+    slog "usage: $0 <ifname> [options]"
+    exit $127
+fi
+
+# env 2>&1 | pipelog
+
+if_creator $@ || exit $?
+
+#
+
+exitcode=0
+
+$IFCONFIG_CMD $IFNAME up 2>&1 | pipelog
+exitcode=${PIPESTATUS[0]}
+test $exitcode -ne 0 && slog "network interface configure failed: $IFCONFIG_CMD $IFNAME up" && exit $exitcode
+
+# ether 00:18:2a:e8:39:ea
+cmd=''
+arg=''
+for item in $@
+do
+    if [ "$item" = 'up' ]
+        then
+        continue
+    fi
+    if [ "$item" = 'SYNCDHCP' ]
+        then
+        $DHCPCLIENT_CMD $IFNAME 2>&1 | pipelog
+        exitcode=${PIPESTATUS[0]}
+        test $exitcode -ne 0 && slog "network interface configure failed: $DHCPCLIENT_CMD $IFNAME"
+        break
+    fi
+    if [ "$item" = 'DHCP' ]
+        then
+        $DHCPCLIENT_CMD -b $IFNAME 2>&1 | pipelog
+        exitcode=${PIPESTATUS[0]}
+        test $exitcode -ne 0 && slog "network interface configure failed: $DHCPCLIENT_CMD -b $IFNAME"
+        break
+    fi
+    if [ "$cmd" = 'addm' -o "$cmd" = 'inet' -o "$cmd" = 'ether' ]
+        then
+        arg="$item"
+    fi
+    if [ "$item" = 'addm' -o "$item" = 'inet' -o "$item" = 'ether' ]
+        then
+        cmd=$item
+        continue
+    fi
+    if [ -n "$cmd" ]
+    then
+        $IFCONFIG_CMD $IFNAME $cmd $arg 2>&1 | pipelog
+        exitcode=${PIPESTATUS[0]}
+        if [ $exitcode -ne 0 ]
+            then
+            slog "network interface configure failed: $IFCONFIG_CMD $IFNAME $cmd $arg" 
+        fi
+        if [ "$cmd" = 'addm' ]
+            then
+            $IFCONFIG_CMD $arg up
+            exitcode=$?
+            test $exitcode -ne 0 && slog "network interface configure failed: $IFCONFIG_CMD $arg up"
+        fi
+    fi
+    cmd=''
+    arg=''
+done
+
+#
+$IFCONFIG_CMD $IFNAME up 2>&1 | pipelog
+$IFCONFIG_CMD $IFNAME 2>&1 | pipelog
+
+exit $exitcode
+#
+
+EOF
+
+chmod +x /sbin/ifaceboot
+
+
+# start on boot
+cat <<'EOF' >> /etc/rc.local
+# fix network interface configure in rc.conf
+#    /sbin/ifaceboot wlan0 ath0 wlanmode hostap up
+#
+#    /sbin/ifconfig wlan0 txpower 5
+#
+
+#    /sbin/ifaceboot bridge0 addm em1 addm em2 addm em3 addm wlan0 inet 172.236.127.43/24
 
 #
 EOF
 
+#
+# dnsmasq dhcp server(with dns)
+#
+
+pkg install -y dnsmasq
+
+#
+
+cat <<'EOF'> /usr/local/etc/dnsmasq.conf
+#
+# port=0 to disable dns server part
+#
+port=53
+#
+no-resolv
+
+server=10.236.8.8
+server=10.237.8.8
+
+# server=114.114.114.114
+# server=8.8.8.8
+# server=/google.com/8.8.8.8
+
+all-servers
+
+#
+log-queries
+#
+# enable dhcp server
+#
+dhcp-range=172.236.127.51,172.236.127.90,2400h
+#
+#
+log-dhcp
+#
+#
+no-dhcp-interface=em0
+#
+#dhcp-range=vmbr0,10.236.12.21,10.236.12.30,3h
+# option 6, dns server
+#dhcp-option=vmbr0,6,10.236.8.8
+# option 3, default gateway
+#dhcp-option=vmbr0,3,10.236.12.1
+# option 15, domain-name
+#dhcp-option=vmbr0,15,localdomain
+# option 119, domain-search
+#dhcp-option=vmbr0,119,localdomain
+#
+#dhcp-range=vmbr9,198.119.0.21,198.119.0.199,3h
+# option 6, dns server
+#dhcp-option=vmbr9,6,198.119.0.11
+# option 3, default gateway
+#dhcp-option=vmbr9,3,198.119.0.11
+# option 15, domain-name
+#dhcp-option=vmbr9,15,localdomain
+# option 119, domain-search
+#dhcp-option=vmbr9,119,localdomain
+#
+# dhcp options
+#
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 DHCPOFFER(vmbr0) 10.236.12.180 36:b8:a4:ad:46:05 
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 1:netmask, 28:broadcast, 2:time-offset, 3:router, 
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 15:domain-name, 6:dns-server, 119:domain-search, 
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 12:hostname, 44:netbios-ns, 47:netbios-scope, 
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 26:mtu, 121:classless-static-route, 42:ntp-server
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 next server: 10.236.12.11
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  1 option: 53 message-type  2
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 54 server-identifier  10.236.12.11
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 51 lease-time  10800
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 58 T1  5400
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 59 T2  9450
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option:  1 netmask  255.255.255.0
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 28 broadcast  10.236.12.255
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option:  3 router  10.236.12.11
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option:  6 dns-server  10.236.12.11
+#
+EOF
+
+#
+
+cat <<'EOF' >> /etc/syslog.conf
+# dnsmasq server logging
+!dnsmasq
+*.*             /var/log/messages
+!dnsmasq-dhcp
+*.*             /var/log/messages
+#
+EOF
+
+service syslogd restart
+
+mv /etc/resolv.conf /etc/resolv.conf.orig.$$
+
+cat <<'EOF'>/etc/resolv.conf
+#
+search localdomain
+nameserver 127.0.0.1
+#
+EOF
+
+chflags schg /etc/resolv.conf
+
+# to unlock
+# chflags noschg /etc/resolv.conf
+
+#
+
+cat <<'EOF' >> /etc/rc.conf
+#
+dnsmasq_enable="YES"
+#
+EOF
+
+#
+
+/usr/local/etc/rc.d/dnsmasq restart
+
 #### ------------------------
-
-#
-# base system source
-#
-
-rm -rf /usr/src && svn checkout https://svn.FreeBSD.org/base/head /usr/src && svn update /usr/src
-
-# #
-# # upgrade by source
-# #
-# # https://www.freebsd.org/doc/handbook/synching.html
-# #
-# pkg install -y ca_root_nss subversion
-# #
-# # ports
-# #
-# svn checkout https://svn.FreeBSD.org/ports/head /usr/ports && svn update /usr/ports
-# 
-# #
-# # doc
-# #
-# svn checkout https://svn.FreeBSD.org/doc/head /usr/doc && svn update /usr/doc
-# 
-# 
-# #
-# # base system source
-# #
-# 
-# svn checkout https://svn.FreeBSD.org/base/head /usr/src && svn update /usr/src
-# 
 
 #
 # http://yaws.hyber.org/privbind.yaws
@@ -362,18 +655,7 @@ echo 'net.inet.ip.portrange.reservedhigh=1023' >> /etc/sysctl.conf
 #
 
 # anti-gfw 
-pkgloop install -y shadowsocks-libev
-
-cat <<'EOF'>> /etc/rc.local
-# for dns forward
-nohup /usr/local/bin/ss-tunnel -s your-remote-server-ip -p remote-server-port -l 8053 -b 127.0.0.1 -t 30 -k remote-server-password -m chacha20 -L 8.8.8.8:53 -u -v < /dev/zero >/var/log/ss-dns.log 2>&1 &
-# for socks-5 client
-nohup /usr/local/bin/ss-local -s your-remote-server-ip -p remote-server-port -l 8080 -b 127.0.0.1 -t 30 -k remote-server-password -m chacha20 -v < /dev/zero >/var/log/ss-local.log 2>&1 &
-# launch chrome --proxy-server=socks5://127.0.0.1:8080
-EOF
-
-#
-pkgloop install -y proxychains-ng
+pkgloop install -y shadowsocks-libev proxychains-ng
 
 #
 cp /usr/local/etc/proxychains.conf /usr/local/etc/proxychains.conf.$$
@@ -410,6 +692,31 @@ socks5 	127.0.0.1 8080
 #
 EOF
 
+#
+
+cat <<'EOF'>> /usr/local/bin/ss-start.sh
+#!/bin/sh
+if [ `id -u` -ne 0 ]
+then
+        sudo $0
+        exit $?
+fi
+#
+rm -f ${HOME}/ss-*.core
+
+killall ss-tunnel 2>/dev/null
+killall ss-local 2>/dev/null
+
+nohup /usr/local/bin/ss-tunnel -s ss-server-ip -p ss-server-port -l 8053 -b 127.0.0.1 -t 30 -k ss-server-password -m chacha20 -L 8.8.8.8:53 -u -v < /dev/zero >/var/log/ss-dns.log 2>&1 &
+sleep 1
+nohup /usr/local/bin/ss-local -s ss-server-ip -p ss-server-port -l 8080 -b 0.0.0.0 -t 30 -k ss-server-password -m chacha20 -v < /dev/zero >/var/log/ss-local.log 2>&1 &
+sockstat -l | grep udp | grep ss| head -n3
+sockstat -l | grep tcp | grep ss| head -n3
+sleep 1
+service dnsmasq restart
+# launch chrome --proxy-server=socks5://127.0.0.1:8080
+EOF
+
 ## wpa2-psk wifi client
 # for open wifi: ifconfig wlan0 ssid xxxx && dhclient wlan0
 
@@ -420,154 +727,17 @@ cp /usr/local/etc/wpa_supplicant.conf /usr/local/etc/wpa_supplicant.conf.dist
 echo 'wpa_supplicant_program="/usr/local/sbin/wpa_supplicant"' >> /etc/rc.conf
 
 cat <<'EOF' >/usr/local/etc/wpa_supplicant.conf
-##### Example wpa_supplicant configuration file ###############################
+#####wpa_supplicant configuration file ###############################
 #
-# This file describes configuration file format and lists all available option.
-# Please also take a look at simpler configuration examples in 'examples'
-# subdirectory.
-#
-# Empty lines and lines starting with # are ignored
+update_config=0
 
-# NOTE! This file may contain password information and should probably be made
-# readable only by root user on multiuser systems.
-
-# Note: All file paths in this configuration file should use full (absolute,
-# not relative to working directory) path in order to allow working directory
-# to be changed. This can happen if wpa_supplicant is run in the background.
-
-# Whether to allow wpa_supplicant to update (overwrite) configuration
-#
-# This option can be used to allow wpa_supplicant to overwrite configuration
-# file whenever configuration is changed (e.g., new network block is added with
-# wpa_cli or wpa_gui, or a password is changed). This is required for
-# wpa_cli/wpa_gui to be able to store the configuration changes permanently.
-# Please note that overwriting configuration file will remove the comments from
-# it.
-update_config=1
-
-# global configuration (shared by all network blocks)
-#
-# Parameters for the control interface. If this is specified, wpa_supplicant
-# will open a control interface that is available for external programs to
-# manage wpa_supplicant. The meaning of this string depends on which control
-# interface mechanism is used. For all cases, the existence of this parameter
-# in configuration is used to determine whether the control interface is
-# enabled.
-#
-# For UNIX domain sockets (default on Linux and BSD): This is a directory that
-# will be created for UNIX domain sockets for listening to requests from
-# external programs (CLI/GUI, etc.) for status information and configuration.
-# The socket file will be named based on the interface name, so multiple
-# wpa_supplicant processes can be run at the same time if more than one
-# interface is used.
-# /var/run/wpa_supplicant is the recommended directory for sockets and by
-# default, wpa_cli will use it when trying to connect with wpa_supplicant.
-#
-# Access control for the control interface can be configured by setting the
-# directory to allow only members of a group to use sockets. This way, it is
-# possible to run wpa_supplicant as root (since it needs to change network
-# configuration and open raw sockets) and still allow GUI/CLI components to be
-# run as non-root users. However, since the control interface can be used to
-# change the network configuration, this access needs to be protected in many
-# cases. By default, wpa_supplicant is configured to use gid 0 (root). If you
-# want to allow non-root users to use the control interface, add a new group
-# and change this value to match with that group. Add users that should have
-# control interface access to this group. If this variable is commented out or
-# not included in the configuration file, group will not be changed from the
-# value it got by default when the directory or socket was created.
-#
-# When configuring both the directory and group, use following format:
-# DIR=/var/run/wpa_supplicant GROUP=wheel
-# DIR=/var/run/wpa_supplicant GROUP=0
-# (group can be either group name or gid)
-#
-# For UDP connections (default on Windows): The value will be ignored. This
-# variable is just used to select that the control interface is to be created.
-# The value can be set to, e.g., udp (ctrl_interface=udp)
-#
-# For Windows Named Pipe: This value can be used to set the security descriptor
-# for controlling access to the control interface. Security descriptor can be
-# set using Security Descriptor String Format (see http://msdn.microsoft.com/
-# library/default.asp?url=/library/en-us/secauthz/security/
-# security_descriptor_string_format.asp). The descriptor string needs to be
-# prefixed with SDDL=. For example, ctrl_interface=SDDL=D: would set an empty
-# DACL (which will reject all connections). See README-Windows.txt for more
-# information about SDDL string format.
 #
 ctrl_interface=/var/run/wpa_supplicant
 
-# IEEE 802.1X/EAPOL version
-# wpa_supplicant is implemented based on IEEE Std 802.1X-2004 which defines
-# EAPOL version 2. However, there are many APs that do not handle the new
-# version number correctly (they seem to drop the frames completely). In order
-# to make wpa_supplicant interoperate with these APs, the version number is set
-# to 1 by default. This configuration value can be used to set it to the new
-# version (2).
-# Note: When using MACsec, eapol_version shall be set to 3, which is
-# defined in IEEE Std 802.1X-2010.
 eapol_version=1
 
-# AP scanning/selection
-# By default, wpa_supplicant requests driver to perform AP scanning and then
-# uses the scan results to select a suitable AP. Another alternative is to
-# allow the driver to take care of AP scanning and selection and use
-# wpa_supplicant just to process EAPOL frames based on IEEE 802.11 association
-# information from the driver.
-# 1: wpa_supplicant initiates scanning and AP selection; if no APs matching to
-#    the currently enabled networks are found, a new network (IBSS or AP mode
-#    operation) may be initialized (if configured) (default)
-# 0: driver takes care of scanning, AP selection, and IEEE 802.11 association
-#    parameters (e.g., WPA IE generation); this mode can also be used with
-#    non-WPA drivers when using IEEE 802.1X mode; do not try to associate with
-#    APs (i.e., external program needs to control association). This mode must
-#    also be used when using wired Ethernet drivers.
-#    Note: macsec_qca driver is one type of Ethernet driver which implements
-#    macsec feature.
-# 2: like 0, but associate with APs using security policy and SSID (but not
-#    BSSID); this can be used, e.g., with ndiswrapper and NDIS drivers to
-#    enable operation with hidden SSIDs and optimized roaming; in this mode,
-#    the network blocks in the configuration file are tried one by one until
-#    the driver reports successful association; each network block should have
-#    explicit security policy (i.e., only one option in the lists) for
-#    key_mgmt, pairwise, group, proto variables
-# Note: ap_scan=2 should not be used with the nl80211 driver interface (the
-# current Linux interface). ap_scan=1 is optimized work working with nl80211.
-# For finding networks using hidden SSID, scan_ssid=1 in the network block can
-# be used with nl80211.
-# When using IBSS or AP mode, ap_scan=2 mode can force the new network to be
-# created immediately regardless of scan results. ap_scan=1 mode will first try
-# to scan for existing networks and only if no matches with the enabled
-# networks are found, a new IBSS or AP mode network is created.
 ap_scan=1
 
-# MPM residency
-# By default, wpa_supplicant implements the mesh peering manager (MPM) for an
-# open mesh. However, if the driver can implement the MPM, you may set this to
-# 0 to use the driver version. When AMPE is enabled, the wpa_supplicant MPM is
-# always used.
-# 0: MPM lives in the driver
-# 1: wpa_supplicant provides an MPM which handles peering (default)
-#user_mpm=1
-
-# Maximum number of peer links (0-255; default: 99)
-# Maximum number of mesh peering currently maintained by the STA.
-#max_peer_links=99
-
-# Timeout in seconds to detect STA inactivity (default: 300 seconds)
-#
-# This timeout value is used in mesh STA to clean up inactive stations.
-#mesh_max_inactivity=300
-
-# cert_in_cb - Whether to include a peer certificate dump in events
-# This controls whether peer certificates for authentication server and
-# its certificate chain are included in EAP peer certificate events. This is
-# enabled by default.
-#cert_in_cb=1
-
-# EAP fast re-authentication
-# By default, fast re-authentication is enabled for all EAP methods that
-# support it. This variable can be used to disable fast re-authentication.
-# Normally, there is no need to disable this.
 fast_reauth=1
 
 # Simple case: WPA-PSK, PSK as an ASCII passphrase, allow all valid ciphers
@@ -610,3 +780,33 @@ pkg audit -F && pkg upgrade && pkg autoremove
 
 #
 
+
+#
+# base system source
+#
+
+rm -rf /usr/src && svn checkout https://svn.FreeBSD.org/base/head /usr/src && svn update /usr/src
+
+# #
+# # upgrade by source
+# #
+# # https://www.freebsd.org/doc/handbook/synching.html
+# #
+# pkg install -y ca_root_nss subversion
+# #
+# # ports
+# #
+# svn checkout https://svn.FreeBSD.org/ports/head /usr/ports && svn update /usr/ports
+# 
+# #
+# # doc
+# #
+# svn checkout https://svn.FreeBSD.org/doc/head /usr/doc && svn update /usr/doc
+# 
+# 
+# #
+# # base system source
+# #
+# 
+# svn checkout https://svn.FreeBSD.org/base/head /usr/src && svn update /usr/src
+# 

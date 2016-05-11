@@ -20,7 +20,20 @@
 
 # pkgloop is alias/script of pkg
 
-sudo pkgloop install -y xorg gdm xfce gnome3-lite xlockmore chromium meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin zh-fcitx-table-extra zh-fcitx-configtool geany virtualbox-ose virtualbox-ose-additions virtualbox-ose-kmod libreoffice
+sudo pkgloop install -y xorg gdm xfce xlockmore chromium meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin zh-fcitx-table-extra zh-fcitx-configtool geany virtualbox-ose virtualbox-ose-additions virtualbox-ose-kmod libreoffice
+
+# sudo pkgloop install -y gnome3-lite
+
+#
+# for chromium
+cat <<'EOF' >> /etc/sysctl.conf
+# for chromium
+kern.ipc.shm_allow_removed=1
+#
+EOF
+
+# workround: fix libkvm.so.7 not found from chrome
+ln -s /lib/libkvm.so.6 /lib/libkvm.so.7
 
 #
 # install https://github.com/jamiesonbecker/owa-user-agent/ if you access microsoft exchange OWA
@@ -37,6 +50,7 @@ X -configure && cat /root/xorg.conf.new > /etc/X11/xorg.conf
 cp /etc/X11/xorg.conf /etc/X11/xorg.conf.orig.$$
 
 # for asus ul80 + dell 2412m
+# for dual VGA card, make sure config activated card (intel?) as Card0
 cat <<'EOF'> /etc/X11/xorg.conf
 #
 Section "ServerLayout"
@@ -177,6 +191,203 @@ EndSection
 #
 EOF
 
+# 
+
+cat <<'EOF' > /etc/X11/xorg.conf
+Section "ServerLayout"
+    Identifier     "X.org Configured"
+    Screen      0  "Screen0" 0 0
+    Screen      1  "Screen1" RightOf "Screen0"
+    InputDevice    "Mouse0" "CorePointer"
+    InputDevice    "Keyboard0" "CoreKeyboard"
+EndSection
+
+Section "Files"
+    ModulePath   "/usr/local/lib/xorg/modules"
+    FontPath     "/usr/local/share/fonts/misc/"
+    FontPath     "/usr/local/share/fonts/TTF/"
+    FontPath     "/usr/local/share/fonts/OTF/"
+    FontPath     "/usr/local/share/fonts/Type1/"
+    FontPath     "/usr/local/share/fonts/100dpi/"
+    FontPath     "/usr/local/share/fonts/75dpi/"
+EndSection
+
+Section "Module"
+    Load "glx"
+    Load "dbe"
+    Load "extmod"
+    Load "dri"
+    Load "record"
+    Load "dri2"
+EndSection
+
+Section "InputDevice"
+    Identifier  "Keyboard0"
+    Driver      "kbd"
+EndSection
+
+Section "InputDevice"
+    Identifier  "Mouse0"
+    Driver      "mouse"
+    Option        "Protocol" "auto"
+    Option        "Device" "/dev/sysmouse"
+    Option        "ZAxisMapping" "4 5 6 7"
+EndSection
+
+Section "Monitor"
+    Identifier   "Monitor0"
+    VendorName   "Monitor Vendor"
+    ModelName    "Monitor Model"
+EndSection
+
+Section "Monitor"
+    Identifier   "Monitor1"
+    VendorName   "Monitor Vendor"
+    ModelName    "Monitor Model"
+EndSection
+
+# NOTE: activated intel should be Card0
+Section "Device"
+        ### Available Driver options are:-
+        ### Values: <i>: integer, <f>: float, <bool>: "True"/"False",
+        ### <string>: "String", <freq>: "<f> Hz/kHz/MHz",
+        ### <percent>: "<f>%"
+        ### [arg]: arg optional
+        #Option     "NoAccel"                # [<bool>]
+        #Option     "AccelMethod"            # <str>
+        #Option     "Backlight"              # <str>
+        #Option     "DRI"                    # <str>
+        #Option     "ColorKey"               # <i>
+        #Option     "VideoKey"               # <i>
+        #Option     "Tiling"                 # [<bool>]
+        #Option     "LinearFramebuffer"      # [<bool>]
+        #Option     "SwapbuffersWait"        # [<bool>]
+        #Option     "TripleBuffer"           # [<bool>]
+        #Option     "XvPreferOverlay"        # [<bool>]
+        #Option     "HotPlug"                # [<bool>]
+        #Option     "ReprobeOutputs"         # [<bool>]
+        #Option     "XvMC"                   # [<bool>]
+        #Option     "ZaphodHeads"            # <str>
+        #Option     "TearFree"               # [<bool>]
+        #Option     "PerCrtcPixmaps"         # [<bool>]
+        #Option     "FallbackDebug"          # [<bool>]
+        #Option     "DebugFlushBatches"      # [<bool>]
+        #Option     "DebugFlushCaches"       # [<bool>]
+        #Option     "DebugWait"              # [<bool>]
+        #Option     "BufferCache"            # [<bool>]
+    Identifier  "Card0"
+    Driver      "intel"
+    BusID       "PCI:0:2:0"
+EndSection
+
+# NOTE: inactivated nv should be Card1
+Section "Device"
+        ### Available Driver options are:-
+        ### Values: <i>: integer, <f>: float, <bool>: "True"/"False",
+        ### <string>: "String", <freq>: "<f> Hz/kHz/MHz",
+        ### <percent>: "<f>%"
+        ### [arg]: arg optional
+        #Option     "SWcursor"               # [<bool>]
+        #Option     "HWcursor"               # [<bool>]
+        #Option     "NoAccel"                # [<bool>]
+        #Option     "ShadowFB"               # [<bool>]
+        #Option     "UseFBDev"               # [<bool>]
+        #Option     "Rotate"                 # [<str>]
+        #Option     "VideoKey"               # <i>
+        #Option     "FlatPanel"              # [<bool>]
+        #Option     "FPDither"               # [<bool>]
+        #Option     "CrtcNumber"             # <i>
+        #Option     "FPScale"                # [<bool>]
+        #Option     "FPTweak"                # <i>
+        #Option     "DualHead"               # [<bool>]
+    Identifier  "Card1"
+    Driver      "nv"
+    BusID       "PCI:1:0:0"
+EndSection
+
+Section "Screen"
+    Identifier "Screen0"
+    Device     "Card0"
+    Monitor    "Monitor0"
+    SubSection "Display"
+        Viewport   0 0
+        Depth     1
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     4
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     8
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     15
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     16
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     24
+        #Modes "1366x768"
+    EndSubSection
+EndSection
+
+Section "Monitor"
+    Identifier    "Monitor1"
+    VendorName    "Dell"
+    ModelName    "U2412M"
+    ModeLine    "1920x1200"    154.0 1920 1968 2000 2080 1200 1203 1209 1235 -HSync +VSync
+    Option       "DPMS"          "true"
+    Option       "PreferredMode" "1920x1200"
+EndSection
+
+Section "Screen"
+    Identifier "Screen1"
+    Device     "Card0"
+    Monitor    "Monitor1"
+    SubSection "Display"
+        Viewport   0 0
+        Depth     1
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     4
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     8
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     15
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     16
+        #Modes "1366x768"
+    EndSubSection
+    SubSection "Display"
+        Viewport   0 0
+        Depth     24
+        #Modes "1366x768"
+    EndSubSection
+EndSection
+
+EOF
+
 #
 # check X driver status in X
 #
@@ -190,15 +401,15 @@ glxgears
 #########  /etc/rc.conf. GDM will be started automatic on the next reboot.
 
 #
-# gdm start on boot
+# gdm/gnome DO NOT start on boot
 #
 
 cat <<EOF>> /etc/rc.conf
 #
 dbus_enable="YES"
 hald_enable="YES"
-gdm_enable="YES"
-gnome_enable="YES"
+# gdm_enable="YES"
+# gnome_enable="YES"
 #
 EOF
 
@@ -218,6 +429,7 @@ cp -a /etc/profile /etc/profile.orig.$$
 
 # NOTE: overwrite
 cat <<'EOF' > /etc/profile
+#!/bin/sh
 # $FreeBSD: head/etc/profile 208116 2010-05-15 17:49:56Z jilles $
 #
 # System-wide .profile file for sh(1).
