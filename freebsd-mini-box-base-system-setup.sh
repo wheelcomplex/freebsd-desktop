@@ -83,8 +83,7 @@ chmod +x /usr/local/sbin/pkgloop
 
 # base pkg
 # git included in git-gui
-pkgloop install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar dot2tex unzip
-
+pkgloop install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar dot2tex unzip && \
 pkgloop install -y bash-completion
 
 #
