@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # bootstrap:
-# rm -rf ${HOME}/tmp/freebsd-desktop/ && cd ${HOME} && mkdir -p ${HOME}/tmp/ && git clone https://github.com/wheelcomplex/freebsd-desktop.git ${HOME}/tmp/freebsd-desktop/ && ${HOME}/tmp/freebsd-desktop/vimdocs/vim-ubuntu-freebsd-setup-for-go.sh
+# which git || sudo pkg install -y git-lite || sudo apt-get install -y git;rm -rf ${HOME}/tmp/freebsd-desktop/ && cd ${HOME} && mkdir -p ${HOME}/tmp/ && git clone https://github.com/wheelcomplex/freebsd-desktop.git ${HOME}/tmp/freebsd-desktop/ && ${HOME}/tmp/freebsd-desktop/vimdocs/vim-ubuntu-freebsd-setup-for-go.sh
 #
 # base on https://github.com/yourihua/Documents/blob/master/Vim/Mac%E4%B8%8B%E4%BD%BF%E7%94%A8Vim%E6%90%AD%E5%BB%BAGo%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83.mdown
 #
