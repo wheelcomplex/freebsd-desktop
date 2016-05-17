@@ -83,7 +83,8 @@ chmod +x /usr/local/sbin/pkgloop
 
 # base pkg
 # git included in git-gui
-pkgloop install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar dot2tex unzip && \
+# xauth for X11 Forward
+pkgloop install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar dot2tex unzip xauth && \
 pkgloop install -y bash-completion
 
 #
@@ -179,18 +180,11 @@ EOF
 cat /boot/loader.conf
 
 #
-#
-# NOTE: overwrite
-#
 
-cat <<'EOF' > /etc/rc.conf
+cat <<'EOF' >> /etc/rc.conf
 #
-hostname="n550jk.localdomain"
-
 # kernel modules
 kld_list="if_bridge bridgestp fdescfs linux linprocfs wlan_xauth snd_driver coretemp"
-#
-
 #
 sshd_enable="YES"
 moused_enable="YES"
@@ -199,50 +193,12 @@ powerd_enable="YES"
 # Set dumpdev to "AUTO" to enable crash dumps, "NO" to disable
 dumpdev="AUTO"
 zfs_enable="YES"
-
 #
 ntpd_flags="-g"
 syslogd_flags="-ss"
 #
 linux_enable="YES"
 #
-
-#
-ifconfig_re0="DHCP"
-
-#ifconfig_re0="inet 10.236.12.201/24"
-#defaultrouter="10.236.12.1"
-
-# ether 00:18:2a:e8:39:ea for 10.236.127.43
-#ifconfig_re0="ether 00:18:2a:e8:39:ea DHCP"
-#ifconfig_re0="DHCP"
-#
-
-# https://www.freebsd.org/doc/handbook/network-wireless.html
-
-#### # for hostapd
-#### wlans_run0="wlan0"
-#### ifconfig_wlan0="wlanmode hostap up"
-#### 
-#### #
-#### # https://www.freebsd.org/cgi/man.cgi?query=if_bridge&sektion=4
-#### #
-#### # https://forums.freebsd.org/threads/trying-to-set-up-a-network-bridge-for-dhcp.20287/#post-307943
-#### # for SYNCDHCP
-#### 
-#### # https://www.freebsd.org/doc/handbook/network-bridging.html
-#### ifconfig_em1="up"
-#### ifconfig_em2="up"
-#### ifconfig_em3="up"
-#### 
-#### # new usage of freebsd 11 ?
-#### autobridge_interfaces="bridge0"
-#### autobridge_bridge0="addm em1 addm em2 addm em3 addm wlan0 inet 172.236.127.43/24"
-#### 
-#### #
-#### cloned_interfaces="bridge0"
-#### ifconfig_bridge0="addm em1 addm em2 addm em3 addm wlan0 inet 172.236.127.43/24"
-#### 
 
 EOF
 
@@ -264,7 +220,6 @@ EOF
 #		 disks are mounted.  Loading modules at	this point in the boot
 #		 process is much faster	than doing it via /boot/loader.conf
 #		 for those modules not necessary for mounting local disk.
-
 
 # for linux
 mkdir -p /compat/linux/etc/ /compat/linux/proc
