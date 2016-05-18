@@ -20,7 +20,7 @@
 
 # pkgloop is alias/script of pkg
 
-sudo pkgloop install -y git-gui xorg gdm xfce xlockmore chromium meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin zh-fcitx-table-extra zh-fcitx-configtool geany virtualbox-ose virtualbox-ose-additions virtualbox-ose-kmod libreoffice virt-viewer
+sudo pkgloop install -y git-gui xorg gdm xfce xlockmore chromium meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin zh-fcitx-table-extra zh-fcitx-configtool geany virtualbox-ose virtualbox-ose-additions virtualbox-ose-kmod libreoffice virt-viewer openjdk icedtea-web
 
 # sudo pkgloop install -y gnome3-lite
 
