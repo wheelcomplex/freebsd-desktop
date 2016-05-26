@@ -14,10 +14,11 @@
 
 pw usermod root -s /bin/sh
 
-sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -y bash wget sudo rsync && ln -s /usr/local/bin/bash /bin/bash && mount -t fdescfs fdesc /dev/fd
-
 # allow wheel group sudo
-echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers
+
+sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -y bash wget sudo rsync && ln -s /usr/local/bin/bash /bin/bash && mount -t fdescfs fdesc /dev/fd && echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers
+
+# cd /usr/ports/shells/bash && make install clean
 
 bash
 
@@ -147,6 +148,11 @@ top -I -a -t -S -P
 #
 
 cat <<EOF>> /boot/loader.conf
+# wait for storage, in ms
+kern.cam.boot_delay=10000
+kern.cam.scsi_delay=10000
+vfs.mountroot.timeout=15000
+#
 #
 # keep system stable
 # https://wiki.freebsd.org/ZFSTuningGuide
@@ -168,6 +174,10 @@ EOF
 # OR
 
 cat <<EOF>> /boot/loader.conf
+# wait for storage, in ms
+kern.cam.boot_delay=10000
+kern.cam.scsi_delay=10000
+vfs.mountroot.timeout=15000
 #
 vm.overcommit=2
 #
