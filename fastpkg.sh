@@ -13,10 +13,11 @@ fi
 shift
 target="$@"
 echo "fast pkg ${act}ing $target ..."
-list=`echo "n" | pkg install xfce xorg 2>&1| grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| grep -v "The process will"|grep -v "to be downloaded."| grep -v "Proceed with this action"| awk -F': ' '{print $1}'`;
+list=`echo "n" | pkg install $target 2>&1| grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| grep -v "The process will"|grep -v "to be downloaded."| grep -v "Proceed with this action"| awk -F': ' '{print $1}'`;
 
 maxjobs(){
         local max="$1"
+        local verb="$2"
         test -z "$max" && max=5
         if [ $max -eq $max ] 2>/dev/null
         then
@@ -24,7 +25,7 @@ maxjobs(){
         else
             max=5
         fi
-        echo "max jobs $max ..."
+        test -n "$verb" && echo "waiting for max jobs $max ..."
         while [ : ]
         do
             if [ `jobs 2>&1 | grep -ic 'running'` -le $max ]
@@ -38,9 +39,9 @@ maxjobs(){
 for onepkg in $list
 do 
     maxjobs 8;echo $onepkg;
-    pkg fetch -y $onepkg & 
+    pkg fetch -y $onepkg > /dev/null & 
 done
-maxjobs 0
+maxjobs 0 verb
 if [ "$act" = 'fetch' ]
 then
     echo ""
