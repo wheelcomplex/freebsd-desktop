@@ -53,6 +53,76 @@ test -x /usr/local/bin/bash && pw usermod rhinofly -s /usr/local/bin/bash || pw 
 
 mkdir -p /usr/local/sbin/ 
 
+cat <<'EOF' > /usr/local/sbin/fastpkg
+#!/bin/bash
+if [ `id -u` -ne 0 ]
+then
+    sudo $0 $@
+    exit $?
+fi
+act="$1"
+if [ "$act" != 'install' -a "$act" != 'fetch' ]
+then
+    pkg $@
+    exit $?
+fi
+shift
+target="$@"
+
+echo "fast pkg ${act}ing $target ..."
+
+tmpfile="/tmp/fastpkg.$$.list"
+echo "n" | pkg install $target > $tmpfile 2>&1
+
+list=`cat $tmpfile | grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| grep -v "The process will"|grep -v "to be downloaded."| grep -v "Proceed with this action"| awk -F': ' '{print $1}'`;
+dlinfo=`cat $tmpfile |grep "to be downloaded."`
+
+test -z "$dlinfo" && dlinfo="0 KiB to be downloaded."
+
+echo "$dlinfo ..."
+echo " ---"
+
+maxjobs(){
+        local max="$1"
+        local verb="$2"
+        test -z "$max" && max=5
+        if [ $max -eq $max ] 2>/dev/null
+        then
+            max=$max
+        else
+            max=5
+        fi
+        test -n "$verb" && echo "waiting for max jobs $max ..."
+        while [ : ]
+        do
+            if [ `jobs 2>&1 | grep -ic 'running'` -le $max ]
+            then
+                return 0
+            fi
+            sleep 1
+        done
+}
+
+for onepkg in $list
+do 
+    maxjobs 8;echo $onepkg;
+    pkg fetch -y $onepkg > /dev/null & 
+done
+maxjobs 0 verb
+if [ "$act" = 'fetch' ]
+then
+    echo ""
+    exit 0
+fi
+pkg install -y $target
+exit $?
+#
+
+EOF
+
+chmod +x /usr/local/sbin/fastpkg
+
+
 cat <<'EOF' > /usr/local/sbin/pkgloop
 #!/usr/local/bin/bash
 MAXLOOP=128
@@ -70,7 +140,7 @@ exitcode=0
 while [ $cnt -le $MAXLOOP ]
 do
     let cnt=$cnt+1
-    pkg $@
+    fastpkg $@
     exitcode=$?
     test $exitcode -eq 0 && break
     echo "`date` LOOP#$cnt: pkg $@"
@@ -81,6 +151,7 @@ exit $exitcode
 EOF
 
 chmod +x /usr/local/sbin/pkgloop
+
 
 # base pkg
 # git included in git-gui
