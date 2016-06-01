@@ -22,7 +22,7 @@
 
 allxfce4=`pkg search xfce | grep '^xfce' | awk '{print $1}'`
 
-sudo pkgloop install -y ${allxfce4} git-gui xorg xdm xlockmore chromium meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin \
+sudo pkgloop install -y ${allxfce4} git-gui xorg xdm slim xlockmore chromium meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin \
 zh-fcitx-table-extra zh-fcitx-configtool geany virtualbox-ose apache-openoffice virt-viewer openjdk icedtea-web
 
 # virtualbox-ose-additions virtualbox-ose-kmod
@@ -414,9 +414,36 @@ cat <<EOF>> /etc/rc.conf
 dbus_enable="YES"
 hald_enable="YES"
 xdm_enable="YES"
+slim_enable="YES"
 gnome_enable="YES"
 #
 EOF
+
+cat <<'EOF' >> /usr/local/etc/slim.conf
+#
+default_user    rhinofly
+focus_password    yes
+#
+#
+EOF
+
+# session list
+ls -lah /usr/local/share/xsessions/
+#
+# should already exist
+#
+test ! -f /usr/local/share/xsessions/xfce.desktop && cat <<'EOF' > /usr/local/share/xsessions/xfce.desktop
+[Desktop Entry]
+Version=1.0
+Name=Xfce Session
+Comment=Use this session to run Xfce as your desktop environment
+Exec=startxfce4
+Icon=
+Type=Application
+DesktopNames=XFCE
+EOF
+
+# reboot to take effect
 
 #
 # UTF-8 and fcitx
