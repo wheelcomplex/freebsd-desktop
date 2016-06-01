@@ -1,0 +1,500 @@
+   12  chmod +x /root/.profile
+   13  echo 'setenv SHELL /usr/local/bin/bash && sudo -s' >> /root/.cshrc
+   14  echo 'export SHELL=/usr/local/bin/bash && sudo -s' >> /root/.shrc
+   15  echo 'test -n "$PS1" && test -f /usr/local/share/bash-completion/bash_completion.sh && source /usr/local/share/bash-completion/bash_completion.sh' >> /root/.shrc
+   16  chmod +x /root/.shrc /root/.cshrc
+   17  #
+   18  # rhinofly login with bash
+   19  #
+   20  test -x /usr/local/bin/bash && pw usermod rhinofly -s /usr/local/bin/bash || pw usermod rhinofly -s /bin/sh
+   21  mkdir -p /usr/local/sbin/ 
+   22  cat <<'EOF' > /usr/local/sbin/pkgloop
+   23  #!/usr/local/bin/bash
+   24  MAXLOOP=128
+   25  if [ "$1" = '-M' -a -n "$2" ]
+   26  then
+   27  .MAXLOOP="$2"
+   28  .shift
+   29  .shift
+   30  fi
+   31  #
+   32  # install applications by root
+   33  #
+   34  cnt=0
+   35  exitcode=0
+   36  while [ $cnt -le $MAXLOOP ]
+   37  do
+   38      let cnt=$cnt+1
+   39      pkg $@
+   40      exitcode=$?
+   41      test $exitcode -eq 0 && break
+   42      echo "`date` LOOP#$cnt: pkg $@"
+   43      sleep 1
+   44  done
+   45  exit $exitcode
+   46  #
+   47  EOF
+   48  chmod +x /usr/local/sbin/pkgloop
+   49  # base pkg
+   50  # git included in git-gui
+   51  pkgloop install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar dot2tex unzip && pkgloop install -y bash-completion
+   52  #
+   53  # fix: pkg: cached package xxxx: size mismatch, cannot continue
+   54  #
+   55  # pkg update -f
+   56  #
+   57  mkdir -p /usr/local/etc/bash_completion.d
+   58  # git completion
+   59  wget https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash -O /usr/local/etc/bash_completion.d/git-completion.bash
+   60  # zfs completion
+   61  wget https://raw.githubusercontent.com/zfsonlinux/zfs/master/contrib/bash_completion.d/zfs -O /usr/local/etc/bash_completion.d/zfs
+   62  # devel/cpuflags
+   63  cpuflags clang
+   64  lspci
+   65  lsusb
+   66  cat <<EOF>> /boot/loader.conf
+   67  #
+   68  vm.overcommit=2
+   69  #
+   70  kern.vty=vt
+   71  #
+   72  # more kernel modules listed in kld_list of /etc/rc.conf
+   73  #
+   74  EOF
+   75  cat /boot/loader.conf
+   76  cat <<'EOF' >> /etc/rc.conf
+   77  #
+   78  # kernel modules
+   79  kld_list="if_bridge bridgestp fdescfs linux linprocfs wlan_xauth snd_driver coretemp"
+   80  #
+   81  sshd_enable="YES"
+   82  moused_enable="YES"
+   83  ntpd_enable="YES"
+   84  powerd_enable="YES"
+   85  # Set dumpdev to "AUTO" to enable crash dumps, "NO" to disable
+   86  dumpdev="AUTO"
+   87  zfs_enable="YES"
+   88  #
+   89  ntpd_flags="-g"
+   90  syslogd_flags="-ss"
+   91  #
+   92  linux_enable="YES"
+   93  #
+   94  EOF
+   95  # for linux
+   96  mkdir -p /compat/linux/etc/ /compat/linux/proc
+   97  cat <<'EOF' > /compat/linux/etc/host.conf
+   98  #
+   99  order hosts, bind
+  100  multi on
+  101  #
+  102  EOF
+  103  # for linux
+  104  echo 'link /tmp shm' >> /etc/devfs.conf
+  105  #
+  106  cat <<EOF>> /etc/fstab
+  107  # for bash
+  108  fdesc /dev/fd fdescfs rw,late 0 0
+  109  proc /proc procfs rw,late 0 0
+  110  # for linux
+  111  linproc /compat/linux/proc linprocfs rw,late 0 0
+  112  #
+  113  EOF
+  114  # create
+  115  mv /etc/rc.local /etc/rc.local.orig.$$
+  116  # NOTE: overwrite
+  117  cat <<EOF> /etc/rc.local
+  118  #!/bin/sh
+  119  #
+  120  EOF
+  121  chmod +x /etc/rc.local
+  122  # TODO: PPPoE/ADSL WAN link
+  123  cat <<'EOF' > /sbin/ifaceboot
+  124  #!/bin/bash
+  125  #
+  126  IFCONFIG_CMD="/sbin/ifconfig"
+  127  DHCPCLIENT_CMD="/sbin/dhclient"
+  128  KLDLOAD="/sbin/kldload"
+  129  #
+  130  export IFNAME="$1"
+  131  shift
+  132  export LOGCONSOLE='YES'
+  133  #
+  134  LOGGER="/usr/bin/logger -p user.notice -t $0"
+  135  # do not login
+  136  if [ -z "$USER" ]
+  137      then
+  138      LOGCONSOLE=''
+  139  fi
+  140  #
+  141  slog(){
+  142      local msg="$@"
+  143      test "$LOGCONSOLE" = 'YES' && echo "`date` $0 $msg" >&2
+  144      $LOGGER "$msg"
+  145  }
+  146  #
+  147  pipelog(){
+  148      local oneline
+  149      while IFS= read -r oneline
+  150      do
+  151          slog "$oneline"
+  152      done
+  153  }
+  154  # if_creator if
+  155  #
+  156  if_creator(){
+  157      local ifphy="$1"
+  158      case $IFNAME in
+  159      bridge[0-9]*)
+  160          bridge_creator $IFNAME
+  161          return $?
+  162      ;;
+  163      wlan[0-9]*)
+  164          # ifconfig wlan0 create wlandev ath0
+  165          echo "$@" | grep -q 'wlanmode hostap'
+  166          if [ $? -eq 0 ]
+  167              then
+  168              wlan_creator $IFNAME $ifphy hostap
+  169              return $?
+  170          else
+  171              wlan_creator $IFNAME $ifphy
+  172              return $?
+  173          fi
+  174      ;;
+  175      *)
+  176      ;;
+  177      esac
+  178  }
+  179  # wlan_creator wlanif
+  180  #
+  181  wlan_creator(){
+  182      slog "if_creator wlan: $@ ..."
+  183      local ifname="$1"
+  184      local ifphyname="$2"
+  185      local ifmode="$3"
+  186      echo "$ifname" | grep -q 'wlan[0-9]*' || return 127
+  187      test -n "$ifphyname" || return 127
+  188      local exitcode=0
+  189      ${IFCONFIG_CMD} "${ifname}" destroy 2>/dev/null
+  190      if [ "$ifmode" = 'hostap' ]; then
+  191          $IFCONFIG_CMD "${ifname}" create wlandev "$ifphyname" wlanmode $ifmode 2>&1 | pipelog
+  192          exitcode=${PIPESTATUS[0]}
+  193          test $exitcode -ne 0 && slog "create ${ifname}($ifphyname) wlanmode $ifmode failed" && return $exitcode
+  194      else
+  195          $IFCONFIG_CMD "${ifname}" create wlandev "$ifphyname" 2>&1 | pipelog
+  196          exitcode=${PIPESTATUS[0]}
+  197          test $exitcode -ne 0 && slog "create ${ifname}($ifphyname) failed" && return $exitcode
+  198      fi
+  199      $KLDLOAD wlan_xauth 2>/dev/null
+  200      return $exitcode
+  201  }
+  202  #
+  203  # bridge_creator bridgeif
+  204  #
+  205  bridge_creator(){
+  206      local ifname="$1"
+  207      # slog "bridge_creator $ifname ..."
+  208      echo "$ifname" | grep -q 'bridge[0-9]*' || return 127
+  209      local index=0
+  210      index=`echo "$ifname" | awk -F'bridge' '{print $2}'`
+  211      test -z "$index" && return 127
+  212      test $index -ge 0 2>/dev/null || return 127
+  213      local bridx=0
+  214      local exitcode=0
+  215      while [ : ]; do
+  216          brname="bridge${bridx}"
+  217          ${IFCONFIG_CMD} "${brname}" 2>/dev/null | grep -q -- "${brname}: flags="
+  218          if [ $? -ne 0 ]; then
+  219              $IFCONFIG_CMD bridge create 2>&1 | pipelog
+  220              exitcode=${PIPESTATUS[0]}
+  221              test $exitcode -ne 0 && slog "create $brname failed" && return $exitcode
+  222          fi
+  223          test $bridx -ge $index && break
+  224          bridx=`expr $bridx + 1`
+  225      done
+  226      return $exitcode
+  227  }
+  228  #
+  229  slog "network interface configure: $IFNAME $@"
+  230  if [ -z "$IFNAME" ]
+  231  then
+  232      slog "usage: $0 <ifname> [options]"
+  233      exit $127
+  234  fi
+  235  # env 2>&1 | pipelog
+  236  if_creator $@ || exit $?
+  237  #
+  238  exitcode=0
+  239  $IFCONFIG_CMD $IFNAME up 2>&1 | pipelog
+  240  exitcode=${PIPESTATUS[0]}
+  241  test $exitcode -ne 0 && slog "network interface configure failed: $IFCONFIG_CMD $IFNAME up" && exit $exitcode
+  242  # ether 00:18:2a:e8:39:ea
+  243  cmd=''
+  244  arg=''
+  245  for item in $@
+  246  do
+  247      if [ "$item" = 'up' ]
+  248          then
+  249          continue
+  250      fi
+  251      if [ "$item" = 'SYNCDHCP' ]
+  252          then
+  253          $DHCPCLIENT_CMD $IFNAME 2>&1 | pipelog
+  254          exitcode=${PIPESTATUS[0]}
+  255          test $exitcode -ne 0 && slog "network interface configure failed: $DHCPCLIENT_CMD $IFNAME"
+  256          break
+  257      fi
+  258      if [ "$item" = 'DHCP' ]
+  259          then
+  260          $DHCPCLIENT_CMD -b $IFNAME 2>&1 | pipelog
+  261          exitcode=${PIPESTATUS[0]}
+  262          test $exitcode -ne 0 && slog "network interface configure failed: $DHCPCLIENT_CMD -b $IFNAME"
+  263          break
+  264      fi
+  265      if [ "$cmd" = 'addm' -o "$cmd" = 'inet' -o "$cmd" = 'ether' ]
+  266          then
+  267          arg="$item"
+  268      fi
+  269      if [ "$item" = 'addm' -o "$item" = 'inet' -o "$item" = 'ether' ]
+  270          then
+  271          cmd=$item
+  272          continue
+  273      fi
+  274      if [ -n "$cmd" ]
+  275      then
+  276          $IFCONFIG_CMD $IFNAME $cmd $arg 2>&1 | pipelog
+  277          exitcode=${PIPESTATUS[0]}
+  278          if [ $exitcode -ne 0 ]
+  279              then
+  280              slog "network interface configure failed: $IFCONFIG_CMD $IFNAME $cmd $arg" 
+  281          fi
+  282          if [ "$cmd" = 'addm' ]
+  283              then
+  284              $IFCONFIG_CMD $arg up
+  285              exitcode=$?
+  286              test $exitcode -ne 0 && slog "network interface configure failed: $IFCONFIG_CMD $arg up"
+  287          fi
+  288      fi
+  289      cmd=''
+  290      arg=''
+  291  done
+  292  #
+  293  $IFCONFIG_CMD $IFNAME up 2>&1 | pipelog
+  294  $IFCONFIG_CMD $IFNAME 2>&1 | pipelog
+  295  exit $exitcode
+  296  #
+  297  EOF
+  298  chmod +x /sbin/ifaceboot
+  299  # start on boot
+  300  cat <<'EOF' >> /etc/rc.local
+  301  # fix network interface configure in rc.conf
+  302  #    /sbin/ifaceboot wlan0 ath0 wlanmode hostap up
+  303  #
+  304  #    /sbin/ifconfig wlan0 txpower 5
+  305  #
+  306  #    /sbin/ifaceboot bridge0 addm em1 addm em2 addm em3 addm wlan0 inet 172.236.127.43/24
+  307  #
+  308  EOF
+  309  #
+  310  # dnsmasq dhcp server(with dns)
+  311  #
+  312  pkg install -y dnsmasq
+  313  cat <<'EOF'> /usr/local/etc/dnsmasq.conf
+  314  #
+  315  # port=0 to disable dns server part
+  316  #
+  317  port=53
+  318  #
+  319  no-resolv
+  320  server=10.236.8.8
+  321  server=10.237.8.8
+  322  # server=114.114.114.114
+  323  # server=8.8.8.8
+  324  # server=/google.com/8.8.8.8
+  325  all-servers
+  326  #
+  327  log-queries
+  328  #
+  329  # enable dhcp server
+  330  #
+  331  dhcp-range=172.236.127.51,172.236.127.90,2400h
+  332  #
+  333  #
+  334  log-dhcp
+  335  #
+  336  #
+  337  no-dhcp-interface=em0
+  338  #
+  339  #dhcp-range=vmbr0,10.236.12.21,10.236.12.30,3h
+  340  # option 6, dns server
+  341  #dhcp-option=vmbr0,6,10.236.8.8
+  342  # option 3, default gateway
+  343  #dhcp-option=vmbr0,3,10.236.12.1
+  344  # option 15, domain-name
+  345  #dhcp-option=vmbr0,15,localdomain
+  346  # option 119, domain-search
+  347  #dhcp-option=vmbr0,119,localdomain
+  348  #
+  349  #dhcp-range=vmbr9,198.119.0.21,198.119.0.199,3h
+  350  # option 6, dns server
+  351  #dhcp-option=vmbr9,6,198.119.0.11
+  352  # option 3, default gateway
+  353  #dhcp-option=vmbr9,3,198.119.0.11
+  354  # option 15, domain-name
+  355  #dhcp-option=vmbr9,15,localdomain
+  356  # option 119, domain-search
+  357  #dhcp-option=vmbr9,119,localdomain
+  358  #
+  359  # dhcp options
+  360  #
+  361  #Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 DHCPOFFER(vmbr0) 10.236.12.180 36:b8:a4:ad:46:05 
+  362  #Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 1:netmask, 28:broadcast, 2:time-offset, 3:router, 
+  363  #Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 15:domain-name, 6:dns-server, 119:domain-search, 
+  364  #Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 12:hostname, 44:netbios-ns, 47:netbios-scope, 
+  365  #Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 26:mtu, 121:classless-static-route, 42:ntp-server
+  366  #Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 next server: 10.236.12.11
+  367  #Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  1 option: 53 message-type  2
+  368  #Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 54 server-identifier  10.236.12.11
+  369  #Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 51 lease-time  10800
+  370  #Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 58 T1  5400
+  371  #Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 59 T2  9450
+  372  #Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option:  1 netmask  255.255.255.0
+  373  #Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 28 broadcast  10.236.12.255
+  374  #Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option:  3 router  10.236.12.11
+  375  #Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option:  6 dns-server  10.236.12.11
+  376  #
+  377  EOF
+  378  #
+  379  cat <<'EOF' >> /etc/syslog.conf
+  380  # dnsmasq server logging
+  381  !dnsmasq
+  382  *.*             /var/log/messages
+  383  !dnsmasq-dhcp
+  384  *.*             /var/log/messages
+  385  #
+  386  EOF
+  387  service syslogd restart
+  388  mv /etc/resolv.conf /etc/resolv.conf.orig.$$
+  389  cat <<'EOF'>/etc/resolv.conf
+  390  #
+  391  search localdomain
+  392  nameserver 127.0.0.1
+  393  #
+  394  EOF
+  395  chflags schg /etc/resolv.conf
+  396  # to unlock
+  397  # chflags noschg /etc/resolv.conf
+  398  #
+  399  cat <<'EOF' >> /etc/rc.conf
+  400  #
+  401  dnsmasq_enable="YES"
+  402  #
+  403  EOF
+  404  #
+  405  /usr/local/etc/rc.d/dnsmasq restart
+  406  #### ------------------------
+  407  #
+  408  # anti-gfw 
+  409  pkgloop install -y shadowsocks-libev proxychains-ng
+  410  #
+  411  cp /usr/local/etc/proxychains.conf /usr/local/etc/proxychains.conf.$$
+  412  #
+  413  cat <<'EOF' > /usr/local/etc/proxychains.conf
+  414  # proxychains.conf  VER 4.x
+  415  #
+  416  #        HTTP, SOCKS4a, SOCKS5 tunneling proxifier with DNS.
+  417  strict_chain
+  418  # Quiet mode (no output from library)
+  419  quiet_mode
+  420  # Proxy DNS requests - no leak for DNS data
+  421  proxy_dns 
+  422  remote_dns_subnet 224
+  423  # Some timeouts in milliseconds
+  424  tcp_read_time_out 10000
+  425  tcp_connect_time_out 8000
+  426  ## RFC1918 Private Address Ranges
+  427  localnet 10.0.0.0/255.0.0.0
+  428  localnet 172.16.0.0/255.240.0.0
+  429  localnet 192.168.0.0/255.255.0.0
+  430  #
+  431  [ProxyList]
+  432  # add proxy here ...
+  433  # meanwile
+  434  # defaults set to "ss"
+  435  socks5 .127.0.0.1 8080
+  436  #
+  437  EOF
+  438  #
+  439  ifconfig bridge0
+  440  gpart show da1
+  441  zpool import
+  442  zpool import boxtankmirror
+  443  df -h
+  444  cd /boxtankmirror/backups/freebsd-box/home/rhinofly/
+  445  ll
+  446  ls -alh
+  447  cd
+  448  zpool export boxtankmirror
+  449  df -h
+  450  zpool sttaus
+  451  zpool status
+  452  pkg install xrog xfce4
+  453  pkg install xorg xfce4
+  454  pkg search xfce | more
+  455  pkg install xorg xfce-4
+  456  pkg search xfce | more
+  457  pkg install xorg xfce
+  458  pkg search xfce | more
+  459  pkg install -y xorg xfce
+  460  pkg install -y xorg xfce
+  461  pkg install xorg
+  462  pkg install xfce4-wm
+  463  echo "n" | pkg install xfce4-wm
+  464  echo "n" | pkg install xfce4-wm;echo ""
+  465  echo "n" | pkg install xfce4-wm| grep -A 1000 "to be INSTALLED:";echo ""
+  466  echo "n" | pkg install xfce4-wm| grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:";echo ""
+  467  echo "n" | pkg install xfce4-wm| grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| awk -F': ' '{print $1}';echo ""
+  468* echo "n" | pkg install xfce4-wm| grep -A 10000 "to be INSTALLED:"| grep ": "| awk -F': ' '{print $1}';echo ""
+  469  echo "n" | pkg install xfce4-wm 2>/dev/null | grep -A 1000 "to be INSTALLED:"| grep ": "| awk -F': ' '{print $1}';echo ""
+  470  echo `echo "n" | pkg install xfce4-wm| grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| awk -F': ' '{print $1}'`
+  471  list=echo `echo "n" | pkg install xfce4-wm| grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| awk -F': ' '{print $1}'`
+  472  list=`echo "n" | pkg install xfce4-wm| grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| awk -F': ' '{print $1}'`
+  473  echo $list
+  474  list=`echo "n" | pkg install xfce4-wm| grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| grep -v "The process will"| awk -F': ' '{print $1}'`
+  475  list=`echo "n" | pkg install xfce4-wm| grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| grep -v "The process will"| awk -F': ' '{print $1}'`; echo $list
+  476  list=`echo "n" | pkg install xfce4-wm 2>&1| grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| grep -v "The process will"| awk -F': ' '{print $1}'`; echo $list
+  477  echo "n" | pkg install xfce4-wm 2>&1| grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:" > /tmp/aaa
+  478  cat /tmp/aaa 
+  479  cat /tmp/aaa | grep -v '^The process'
+  480  cat /tmp/aaa 
+  481  list=`echo "n" | pkg install xfce4-wm 2>&1| grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| grep -v "The process will"|grep -v "to be downloaded."| awk -F': ' '{print $1}'`; echo $list
+  482  list=`echo "n" | pkg install xfce4-wm 2>&1| grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| grep -v "The process will"|grep -v "to be downloaded."| grep -v "Proceed with this action"| awk -F': ' '{print $1}'`; echo $list
+  483  pwd
+  484  pkg 
+  485  pkg -h
+  486  pkg --help
+  487  pkg help
+  488  pkg help | more
+  489  pkg help fetch| more
+  490  for aaa in $list; do pkg fetch $aaa & sleep 1; done
+  491  fg
+  492  fg
+  493  fg
+  494  fg
+  495  fg
+  496  fg
+  497  fg
+  498  fg
+  499  fg
+  500  for aaa in $list; do pkg fetch -y $aaa & sleep 1; done
+  501  list=`echo "n" | pkg install xfce xorg 2>&1| grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| grep -v "The process will"|grep -v "to be downloaded."| grep -v "Proceed with this action"| awk -F': ' '{print $1}'`;
+  502  for aaa in $list; do pkg fetch -y $aaa & sleep 1; done
+  503  pkg help
+  504  man pkg
+  505  q
+  506  pkg install xorg xfce
+  507  for aaa in $list; do echo $aaa;pkg fetch -y $aaa & sleep 1; done
+  508  for aaa in $list; do echo $aaa;pkg fetch -y $aaa ;sleep 1; done
+  509  for aaa in $list; do echo $aaa;pkg fetch -y $aaa & done
+  510  for aaa in $list; do echo $aaa;pkg fetch -y $aaa & done
+  511  history > /home/rhinofly/sandspace/extpkg/src/github.com/wheelcomplex/freebsd-desktop/fastpkg.log
