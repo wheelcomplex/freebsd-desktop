@@ -20,8 +20,12 @@
 
 # pkgloop is alias/script of pkg
 
-sudo pkgloop install -y git-gui xorg gdm xfce xlockmore chromium meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin \
-zh-fcitx-table-extra zh-fcitx-configtool geany virtualbox-ose virtualbox-ose-additions virtualbox-ose-kmod libreoffice virt-viewer openjdk icedtea-web
+allxfce4=`pkg search xfce | grep '^xfce' | awk '{print $1}'`
+
+sudo pkgloop install -y ${allxfce4} git-gui xorg xdm xlockmore chromium meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin \
+zh-fcitx-table-extra zh-fcitx-configtool geany virtualbox-ose apache-openoffice virt-viewer openjdk icedtea-web
+
+# virtualbox-ose-additions virtualbox-ose-kmod
 
 # sudo pkgloop install -y gnome3-lite
 
@@ -397,19 +401,19 @@ glxinfo | grep -C 3 render
 
 glxgears
 
-#########  Do _NOT_ use /etc/ttys to start gdm at boot time.  This will result in gdm
-#########  hanging or restarting constantly. Instead, add gdm_enable="YES" to
+#########  Do _NOT_ use /etc/ttys to start xdm at boot time.  This will result in xdm
+#########  hanging or restarting constantly. Instead, add xdm_enable="YES" to
 #########  /etc/rc.conf. GDM will be started automatic on the next reboot.
 
 #
-# gdm/gnome DO NOT start on boot
+# xdm/gnome DO NOT start on boot
 #
 
 cat <<EOF>> /etc/rc.conf
 #
 dbus_enable="YES"
 hald_enable="YES"
-# gdm_enable="YES"
+# xdm_enable="YES"
 # gnome_enable="YES"
 #
 EOF
@@ -540,7 +544,7 @@ test ! -f .ssh/id_rsa && ssh-keygen
 ssh-add
 ssh-add -L
 
-# for gdm/slim
+# for xdm/slim
 
 cat <<'EOF' > ~/.xinitrc
 #!/usr/local/bin/bash

@@ -67,6 +67,9 @@ then
     exit $?
 fi
 shift
+
+test "$1" = '-y' && shift
+
 target="$@"
 
 echo "fast pkg ${act}ing $target ..."
@@ -122,15 +125,16 @@ EOF
 
 chmod +x /usr/local/sbin/fastpkg
 
+#
 
 cat <<'EOF' > /usr/local/sbin/pkgloop
 #!/usr/local/bin/bash
 MAXLOOP=128
 if [ "$1" = '-M' -a -n "$2" ]
 then
-	MAXLOOP="$2"
-	shift
-	shift
+    MAXLOOP="$2"
+    shift
+    shift
 fi
 #
 # install applications by root
@@ -297,10 +301,10 @@ EOF
 
 
 # https://www.freebsd.org/cgi/man.cgi?rc.conf(5)
-#     kld_list	 (str) A list of kernel	modules	to load	right after the	local
-#		 disks are mounted.  Loading modules at	this point in the boot
-#		 process is much faster	than doing it via /boot/loader.conf
-#		 for those modules not necessary for mounting local disk.
+#     kld_list     (str) A list of kernel    modules    to load    right after the    local
+#         disks are mounted.  Loading modules at    this point in the boot
+#         process is much faster    than doing it via /boot/loader.conf
+#         for those modules not necessary for mounting local disk.
 
 # for linux
 mkdir -p /compat/linux/etc/ /compat/linux/proc
@@ -328,7 +332,7 @@ linproc /compat/linux/proc linprocfs rw,late 0 0
 EOF
 
 # create
-mv /etc/rc.local /etc/rc.local.orig.$$
+test -f mv /etc/rc.local && mv /etc/rc.local /etc/rc.local.orig.$$
 
 # NOTE: overwrite
 cat <<EOF> /etc/rc.local
@@ -562,7 +566,7 @@ EOF
 # dnsmasq dhcp server(with dns)
 #
 
-pkg install -y dnsmasq
+pkgloop install -y dnsmasq
 
 #
 
@@ -662,6 +666,8 @@ chflags schg /etc/resolv.conf
 
 # to unlock
 # chflags noschg /etc/resolv.conf
+# or
+# chflags 0 /etc/resolv.conf
 
 #
 
@@ -674,6 +680,8 @@ EOF
 #
 
 /usr/local/etc/rc.d/dnsmasq restart
+
+sleep 1 && tail -n 20 /var/log/messages
 
 #### ------------------------
 
@@ -723,7 +731,7 @@ localnet 192.168.0.0/255.255.0.0
 # add proxy here ...
 # meanwile
 # defaults set to "ss"
-socks5 	127.0.0.1 8080
+socks5     127.0.0.1 8080
 #
 EOF
 
@@ -777,14 +785,14 @@ fast_reauth=1
 
 # Simple case: WPA-PSK, PSK as an ASCII passphrase, allow all valid ciphers
 network={
-	ssid="tutux-mini-139-wifi"
-	psk="yourpassword"
-	scan_ssid=1
-	key_mgmt=WPA-PSK
-	proto=RSN
-	pairwise=CCMP TKIP
-	group=CCMP TKIP
-	priority=5
+    ssid="tutux-mini-139-wifi"
+    psk="yourpassword"
+    scan_ssid=1
+    key_mgmt=WPA-PSK
+    proto=RSN
+    pairwise=CCMP TKIP
+    group=CCMP TKIP
+    priority=5
 }
 EOF
 
