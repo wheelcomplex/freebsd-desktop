@@ -38,7 +38,7 @@ kern.ipc.shm_allow_removed=1
 EOF
 
 # workround: fix libkvm.so.7 not found from chrome
-ln -s /lib/libkvm.so.6 /lib/libkvm.so.7
+# ln -s /lib/libkvm.so.6 /lib/libkvm.so.7
 
 #
 # install https://github.com/jamiesonbecker/owa-user-agent/ if you access microsoft exchange OWA
@@ -406,15 +406,15 @@ glxgears
 #########  /etc/rc.conf. GDM will be started automatic on the next reboot.
 
 #
-# xdm/gnome DO NOT start on boot
+# xdm/gnome start on boot
 #
 
 cat <<EOF>> /etc/rc.conf
 #
 dbus_enable="YES"
 hald_enable="YES"
-# xdm_enable="YES"
-# gnome_enable="YES"
+xdm_enable="YES"
+gnome_enable="YES"
 #
 EOF
 
@@ -427,7 +427,52 @@ locale -a
 # https://fcitx-im.org/wiki/Configure_(Other)
 
 #
+# https://www.b1c1l1.com/blog/2011/05/09/using-utf-8-unicode-on-freebsd/
 #
+
+cat <<'EOF' > /tmp/utf8.patch
+--- /etc/login.conf.orig_TAB_2016-06-01 19:36:34.034145000 +0800
++++ /etc/login.conf_TAB_2016-06-01 19:40:12.960218000 +0800
+@@ -26,7 +26,7 @@
+ _TAB_:passwd_format=sha512:\
+ _TAB_:copyright=/etc/COPYRIGHT:\
+ _TAB_:welcome=/etc/motd:\
+-_TAB_:setenv=MAIL=/var/mail/$,BLOCKSIZE=K:\
++_TAB_:setenv=MAIL=/var/mail/$,BLOCKSIZE=K,LC_COLLATE=C:\
+ _TAB_:path=/sbin /bin /usr/sbin /usr/bin /usr/local/sbin /usr/local/bin ~/bin:\
+ _TAB_:nologin=/var/run/nologin:\
+ _TAB_:cputime=unlimited:\
+@@ -46,7 +46,9 @@
+ _TAB_:umtxp=unlimited:\
+ _TAB_:priority=0:\
+ _TAB_:ignoretime@:\
+-_TAB_:umask=022:
++_TAB_:umask=022:\
++_TAB_:charset=UTF-8:\
++_TAB_:lang=en_US.UTF-8:
+ 
+ 
+ #
+EOF
+
+ttt=`echo -e -n "\t"`
+
+sed -i -e "s#_TAB_#$ttt#g" /tmp/utf8.patch && patch -p0 < /tmp/utf8.patch && cap_mkdb /etc/login.conf
+
+su -
+
+locale
+
+### LANG=en_US.UTF-8
+### LC_CTYPE="en_US.UTF-8"
+### LC_COLLATE=C
+### LC_TIME="en_US.UTF-8"
+### LC_NUMERIC="en_US.UTF-8"
+### LC_MONETARY="en_US.UTF-8"
+### LC_MESSAGES="en_US.UTF-8"
+### LC_ALL=
+### 
+
 #
 
 cp -a /etc/profile /etc/profile.orig.$$
@@ -465,15 +510,6 @@ export XMODIFIERS="@im=fcitx"
 
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/games:/usr/local/games"
 
-export LANG="en_US.UTF-8"
-export LC_CTYPE="en_US.UTF-8"
-export LC_COLLATE="en_US.UTF-8"
-export LC_TIME="en_US.UTF-8"
-export LC_NUMERIC="en_US.UTF-8"
-export LC_MONETARY="en_US.UTF-8"
-export LC_MESSAGES="en_US.UTF-8"
-export LC_ALL="en_US.UTF-8"
-
 #
 # FreeBSD does not use follow setting ?
 #
@@ -487,15 +523,6 @@ export LC_ALL="en_US.UTF-8"
 EOF
 
 source /etc/profile && locale
-
-# LANG=en_US.UTF-8
-# LC_CTYPE="en_US.UTF-8"
-# LC_COLLATE="en_US.UTF-8"
-# LC_TIME="en_US.UTF-8"
-# LC_NUMERIC="en_US.UTF-8"
-# LC_MONETARY="en_US.UTF-8"
-# LC_MESSAGES="en_US.UTF-8"
-# LC_ALL=en_US.UTF-8
 
 #
 # configure fcitx input
@@ -562,7 +589,7 @@ test -s ${HOME}/.env-all && source ${HOME}/.env-all
 /usr/bin/fcitx-autostart
 
 #
-exec /usr/local/bin/startxfce4" 
+exec "/usr/local/bin/startxfce4" 
 #
 EOF
 
@@ -581,7 +608,7 @@ chmod +x ${HOME}/.git-completion.bash
 echo 'test -x ${HOME}/.git-completion.bash && . ${HOME}/.git-completion.bash' >> ${HOME}//.env-all
 
 #
-
+# virtualbox
 #
 
 echo 'vboxdrv_load="YES"' >> /boot/loader.conf
@@ -606,6 +633,9 @@ pw groupmod vboxusers -m rhinofly
 pw groupmod operator -m rhinofly
 pw groupmod wheel -m rhinofly
 
+#
+#
+# done =-========================
 #
 
 #
