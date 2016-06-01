@@ -615,6 +615,8 @@ test -s ${HOME}/.env-all && source ${HOME}/.env-all
 # fcitx -d &
 /usr/bin/fcitx-autostart
 
+xfce4-terminal --maximize &
+
 #
 exec "/usr/local/bin/startxfce4" 
 #
