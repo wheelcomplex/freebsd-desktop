@@ -332,7 +332,7 @@ linproc /compat/linux/proc linprocfs rw,late 0 0
 EOF
 
 # create
-test -f mv /etc/rc.local && mv /etc/rc.local /etc/rc.local.orig.$$
+test -f /etc/rc.local && mv /etc/rc.local /etc/rc.local.orig.$$
 
 # NOTE: overwrite
 cat <<EOF> /etc/rc.local

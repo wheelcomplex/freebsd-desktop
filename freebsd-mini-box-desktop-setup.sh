@@ -197,7 +197,7 @@ EndSection
 EOF
 
 # 
-
+# duel card
 cat <<'EOF' > /etc/X11/xorg.conf
 Section "ServerLayout"
     Identifier     "X.org Configured"
@@ -427,8 +427,6 @@ focus_password    yes
 #
 EOF
 
-# session list
-ls -lah /usr/local/share/xsessions/
 #
 # should already exist
 #
@@ -442,6 +440,37 @@ Icon=
 Type=Application
 DesktopNames=XFCE
 EOF
+
+
+# session list
+ls -lah /usr/local/share/xsessions/
+#
+
+#
+# virtualbox
+#
+
+echo 'vboxdrv_load="YES"' >> /boot/loader.conf
+
+cat <<'EOF' >> /etc/rc.conf
+vboxnet_enable="YES"
+vboxguest_enable="YES"
+vboxservice_enable="YES"
+devfs_system_ruleset="system"
+EOF
+
+cat <<'EOF' >> /etc/devfs.rules
+#
+[system=10]
+add path 'usb/*' mode 0660 group operator
+#
+EOF
+
+echo 'rm -rf /tmp/.vbox-*-ipc' >> /etc/rc.local
+
+pw groupmod vboxusers -m rhinofly
+pw groupmod operator -m rhinofly
+pw groupmod wheel -m rhinofly
 
 # reboot to take effect
 
@@ -586,11 +615,11 @@ sudo pw usermod rhinofly -s /usr/local/bin/bash
 
 sudo pw groupmod video -m rhinofly 2>/dev/null || sudo pw groupmod wheel -m rhinofly
 
-su - rhinofly
-
 #
 # config xfce startup as rhinofly
 #
+
+su - rhinofly
 
 # fix ssh-copyid: no keys found
 test ! -f .ssh/id_rsa && ssh-keygen
@@ -635,32 +664,6 @@ wget https://raw.githubusercontent.com/git/git/master/contrib/completion/git-com
 chmod +x ${HOME}/.git-completion.bash
 
 echo 'test -x ${HOME}/.git-completion.bash && . ${HOME}/.git-completion.bash' >> ${HOME}//.env-all
-
-#
-# virtualbox
-#
-
-echo 'vboxdrv_load="YES"' >> /boot/loader.conf
-
-cat <<'EOF' >> /etc/rc.conf
-vboxnet_enable="YES"
-vboxguest_enable="YES"
-vboxservice_enable="YES"
-devfs_system_ruleset="system"
-EOF
-
-cat <<'EOF' >> /etc/devfs.rules
-#
-[system=10]
-add path 'usb/*' mode 0660 group operator
-#
-EOF
-
-echo 'rm -rf /tmp/.vbox-*-ipc' >> /etc/rc.local
-
-pw groupmod vboxusers -m rhinofly
-pw groupmod operator -m rhinofly
-pw groupmod wheel -m rhinofly
 
 #
 #
