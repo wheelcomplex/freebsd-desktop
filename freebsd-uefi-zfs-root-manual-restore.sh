@@ -1,4 +1,15 @@
 #
+# inform FreeBSD what the bootable dataset is
+zpool set bootfs="zroot/ROOT/default" zroot
+# /boot/loader.conf
+vfs.root.bootfrom="zfs:zroot"
+#
+#
+
+
+# -----
+
+#
 # https://forums.freebsd.org/threads/51393/
 # HOWTO: FreeBSD 10.1 amd64 UEFI boot with encrypted ZFS root using GELI
 #
