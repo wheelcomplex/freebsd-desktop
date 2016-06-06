@@ -207,8 +207,38 @@ camcontrol devlist
 # check for TRIM support
 camcontrol identify /dev/da0
 
+gpart show da0
+
 # check for TRIM support
 tunefs -p /dev/da0p1
+
+cat <<'EOF' > /usr/local/sbin/lsblk
+#!/usr/local/bin/bash
+sysctl -n kern.geom.conftxt
+#
+EOF
+
+chmod +x /usr/local/sbin/lsblk
+
+# lsblk
+#### 0 DISK ada1 2000398934016 512 hd 16 sc 63
+#### 1 LABEL diskid/DISK-S34RJ9AG162466 2000398934016 512 i 0 o 0
+#### 2 PART diskid/DISK-S34RJ9AG162466s4 1888728645632 512 i 4 o 111670198272 ty linux-data xs MBR xt 131
+#### 2 PART diskid/DISK-S34RJ9AG162466s3 85899345920 512 i 3 o 25770852352 ty ntfs xs MBR xt 7
+#### 2 PART diskid/DISK-S34RJ9AG162466s2 21474836480 512 i 2 o 4296015872 ty linux-data xs MBR xt 131
+#### 2 PART diskid/DISK-S34RJ9AG162466s1 4294967296 512 i 1 o 1048576 ty !239 xs MBR xt 239
+#### 1 PART ada1s4 1888728645632 512 i 4 o 111670198272 ty linux-data xs MBR xt 131
+#### 1 PART ada1s3 85899345920 512 i 3 o 25770852352 ty ntfs xs MBR xt 7
+#### 2 LABEL ntfs/win7 85899345920 512 i 0 o 0
+#### 1 PART ada1s2 21474836480 512 i 2 o 4296015872 ty linux-data xs MBR xt 131
+#### 2 LABEL ext2fs/linux-xenial 21474836480 512 i 0 o 0
+#### 1 PART ada1s1 4294967296 512 i 1 o 1048576 ty !239 xs MBR xt 239
+#### 0 DISK ada0 500107862016 512 hd 16 sc 63
+#### 1 PART ada0s2 495809233408 512 i 2 o 4296015872 ty freebsd xs MBR xt 165
+#### 2 PART ada0s2b 474334396416 512 i 2 o 21474836480 ty freebsd-zfs xs BSD xt 27
+#### 2 PART ada0s2a 21474836480 512 i 1 o 0 ty freebsd-ufs xs BSD xt 7
+#### 1 PART ada0s1 4293950976 512 i 1 o 1048576 ty fat32 xs MBR xt 11
+#### 2 LABEL msdosfs/EFI 4293950976 512 i 0 o 0
 
 #
 # freebsd vs linux
