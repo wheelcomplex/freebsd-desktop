@@ -22,10 +22,16 @@
 
 allxfce4=`pkg search xfce | grep '^xfce' | awk '{print $1}'`
 
-sudo pkgloop install -y ${allxfce4} git-gui xorg xdm slim xlockmore chromium meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin \
+sudo pkgloop install -y ${allxfce4} git-gui xorg xf86-video-scfb xdm slim xlockmore chromium meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin \
 zh-fcitx-table-extra zh-fcitx-configtool geany virtualbox-ose apache-openoffice virt-viewer openjdk icedtea-web
 
 # virtualbox-ose-additions virtualbox-ose-kmod
+
+#
+# install virtualbox from ports
+# get list from make missing in /usr/ports/emulators/virtualbox-ose
+fastpkg install patch zip yasm pkgconf gsoap dejagnu expect xorg-macros libcheck xcb-proto makedepend libclc py27-markupsafe py27-babel py27-pytz py27-docutils py27-pytest py27-mock py27-pbr py27-pip py27-pytest-capturelog py27-pytest-timeout py27-pytest-xdist py27-setuptools_scm py27-execnet py27-pexpect py27-virtualenv py27-scripttest py27-pretend py27-freezegun py27-dateutil py27-nose py27-sqlite3 xmlto getopt docbook-xsl docbook docbook-sgml iso8879 docbook-xml xmlcharent sdocbook-xml w3m boehm-gc libatomic_ops asciidoc p5-Test-Exception p5-Sub-Uplevel p5-Test-NoWarnings p5-Test-Simple p5-Test-Warn p5-Test-Pod bzr cython py27-paramiko py27-cryptography py27-cffi py27-pycparser py27-pyasn1 py27-idna py27-ipaddress py27-enum34 py27-iso8601 py27-ecdsa py27-funcsigs py27-pygments py27-alabaster py27-snowballstemmer py27-pystemmer py27-imagesize swig13 cmake scons libarchive liblz4 lzo2 cmake-modules ninja presentproto bigreqsproto xcmiscproto xf86bigfontproto nasm bdftopcf intltool p5-XML-Parser qt4-moc qt4-qmake qt4-rcc qt4-uic qt4-linguist qt4-designer qt4-declarative qt4-script qt4-sql qt4-svg qt4-xmlpatterns qt4-qt3support qt4-webkit v4l_compat qt4-assistant qt4-help qt4-clucene qt4-doc qt4-linguisttools py27-jinja py27-sphinx
+cd /usr/ports/emulators/virtualbox-ose && make fetch install clean
 
 # sudo pkgloop install -y gnome3-lite
 
@@ -195,6 +201,10 @@ EndSection
 
 #
 EOF
+
+#
+# use vesa when card driver not avable
+# #    Driver      "vesa"
 
 # 
 # duel card
@@ -415,7 +425,7 @@ dbus_enable="YES"
 hald_enable="YES"
 xdm_enable="YES"
 slim_enable="YES"
-gnome_enable="YES"
+gnome_enable="NO"
 #
 EOF
 
@@ -513,7 +523,10 @@ EOF
 
 ttt=`echo -e -n "\t"`
 
-sed -i -e "s#_TAB_#$ttt#g" /tmp/utf8.patch && patch -p0 < /tmp/utf8.patch && cap_mkdb /etc/login.conf
+sed -i -e "s#_TAB_#$ttt#g" /tmp/utf8.patch && patch -p0 < /tmp/utf8.patch
+sed -i -e 's#:setenv=MAIL=/var/mail/$,BLOCKSIZE=K:\\#:setenv=MAIL=/var/mail/$,BLOCKSIZE=K,LC_COLLATE=C:\\#g' /etc/login.conf
+
+cap_mkdb /etc/login.conf
 
 su -
 

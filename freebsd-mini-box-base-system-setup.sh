@@ -16,7 +16,9 @@ pw usermod root -s /bin/sh
 
 # allow wheel group sudo
 
-sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -y bash wget sudo rsync && ln -s /usr/local/bin/bash /bin/bash && mount -t fdescfs fdesc /dev/fd && echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers
+sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -y bash wget sudo rsync && ln -s /usr/local/bin/bash /bin/bash && \
+mount -t fdescfs fdesc /dev/fd && echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers && \
+cat /usr/local/etc/sudoers|tail -n 10
 
 # cd /usr/ports/shells/bash && make install clean
 
@@ -52,6 +54,54 @@ chmod +x /root/.shrc /root/.cshrc
 test -x /usr/local/bin/bash && pw usermod rhinofly -s /usr/local/bin/bash || pw usermod rhinofly -s /bin/sh
 
 mkdir -p /usr/local/sbin/ 
+
+cat <<'EOF' > /usr/local/sbin/lsblk
+#!/usr/local/bin/bash
+sysctl -n kern.geom.conftxt
+for disk in `sysctl -n kern.geom.conftxt | grep DISK | grep -v LABEL|grep -v PART| awk '{print $3}'`
+do
+    echo " --- $disk"
+    gpart show $disk
+    echo " -"
+done
+#
+EOF
+
+chmod +x /usr/local/sbin/lsblk
+
+/usr/local/sbin/lsblk
+
+# /usr/local/sbin/lsblk
+#### 0 DISK da0 15819866112 512 hd 255 sc 63
+#### 1 PART da0s1 15815671808 512 i 1 o 4194304 ty !12 xs MBR xt 12
+#### 2 LABEL ext2fs/16GSDCARD 15815671808 512 i 0 o 0
+#### 0 DISK ada1 2000398934016 512 hd 16 sc 63
+#### 1 LABEL diskid/DISK-S34RJ9AG162507 2000398934016 512 i 0 o 0
+#### 0 DISK ada0 16013942784 512 hd 16 sc 63
+#### 1 PART ada0p3 801112064 512 i 3 o 15032406016 ty freebsd-swap xs GPT xt 516e7cb5-6ecf-11d6-8ff8-00022d09712b
+#### 1 PART ada0p2 15031566336 512 i 2 o 839680 ty freebsd-ufs xs GPT xt 516e7cb6-6ecf-11d6-8ff8-00022d09712b
+#### 1 PART ada0p1 819200 512 i 1 o 20480 ty efi xs GPT xt c12a7328-f81f-11d2-ba4b-00a0c93ec93b
+#### 2 LABEL msdosfs/EFI 819200 512 i 0 o 0
+#### 2 LABEL gptid/4af9aaa1-2d1b-11e6-9c03-00e04c680974 819200 512 i 0 o 0
+#### 
+####  --- da0
+#### =>      63  30898113  da0  MBR  (15G)
+####         63      8129       - free -  (4.0M)
+####       8192  30889984    1  !12  (15G)
+#### 
+####  -
+####  --- ada1
+#### gpart: No such geom: ada1.
+####  -
+####  --- ada0
+#### =>      40  31277152  ada0  GPT  (15G)
+####         40      1600     1  efi  (800K)
+####       1640  29358528     2  freebsd-ufs  (14G)
+####   29360168   1564672     3  freebsd-swap  (764M)
+####   30924840    352352        - free -  (172M)
+#### 
+####  -
+#### 
 
 cat <<'EOF' > /usr/local/sbin/fastpkg
 #!/bin/bash
@@ -211,34 +261,6 @@ gpart show da0
 
 # check for TRIM support
 tunefs -p /dev/da0p1
-
-cat <<'EOF' > /usr/local/sbin/lsblk
-#!/usr/local/bin/bash
-sysctl -n kern.geom.conftxt
-#
-EOF
-
-chmod +x /usr/local/sbin/lsblk
-
-# lsblk
-#### 0 DISK ada1 2000398934016 512 hd 16 sc 63
-#### 1 LABEL diskid/DISK-S34RJ9AG162466 2000398934016 512 i 0 o 0
-#### 2 PART diskid/DISK-S34RJ9AG162466s4 1888728645632 512 i 4 o 111670198272 ty linux-data xs MBR xt 131
-#### 2 PART diskid/DISK-S34RJ9AG162466s3 85899345920 512 i 3 o 25770852352 ty ntfs xs MBR xt 7
-#### 2 PART diskid/DISK-S34RJ9AG162466s2 21474836480 512 i 2 o 4296015872 ty linux-data xs MBR xt 131
-#### 2 PART diskid/DISK-S34RJ9AG162466s1 4294967296 512 i 1 o 1048576 ty !239 xs MBR xt 239
-#### 1 PART ada1s4 1888728645632 512 i 4 o 111670198272 ty linux-data xs MBR xt 131
-#### 1 PART ada1s3 85899345920 512 i 3 o 25770852352 ty ntfs xs MBR xt 7
-#### 2 LABEL ntfs/win7 85899345920 512 i 0 o 0
-#### 1 PART ada1s2 21474836480 512 i 2 o 4296015872 ty linux-data xs MBR xt 131
-#### 2 LABEL ext2fs/linux-xenial 21474836480 512 i 0 o 0
-#### 1 PART ada1s1 4294967296 512 i 1 o 1048576 ty !239 xs MBR xt 239
-#### 0 DISK ada0 500107862016 512 hd 16 sc 63
-#### 1 PART ada0s2 495809233408 512 i 2 o 4296015872 ty freebsd xs MBR xt 165
-#### 2 PART ada0s2b 474334396416 512 i 2 o 21474836480 ty freebsd-zfs xs BSD xt 27
-#### 2 PART ada0s2a 21474836480 512 i 1 o 0 ty freebsd-ufs xs BSD xt 7
-#### 1 PART ada0s1 4293950976 512 i 1 o 1048576 ty fat32 xs MBR xt 11
-#### 2 LABEL msdosfs/EFI 4293950976 512 i 0 o 0
 
 #
 # freebsd vs linux
@@ -728,10 +750,9 @@ echo 'net.inet.ip.portrange.reservedhigh=1023' >> /etc/sysctl.conf
 #
 
 # anti-gfw 
-pkgloop install -y shadowsocks-libev proxychains-ng
-
-#
+pkgloop install -y shadowsocks-libev proxychains-ng && \
 cp /usr/local/etc/proxychains.conf /usr/local/etc/proxychains.conf.$$
+
 #
 cat <<'EOF' > /usr/local/etc/proxychains.conf
 # proxychains.conf  VER 4.x
@@ -858,7 +879,7 @@ pkg audit -F && pkg upgrade && pkg autoremove
 # base system source
 #
 
-rm -rf /usr/src && svn checkout https://svn.FreeBSD.org/base/head /usr/src && svn update /usr/src
+rm -rf /usr/src && mkdir -p /usr/src/ && git clone https://github.com/freebsd/freebsd.git /usr/src
 
 # #
 # # upgrade by source
