@@ -60,6 +60,7 @@ X -configure && cat /root/xorg.conf.new > /etc/X11/xorg.conf
 
 cp /etc/X11/xorg.conf /etc/X11/xorg.conf.orig.$$
 
+# default to scfb driver, change as you wish
 # for asus ul80 + dell 2412m
 # for dual VGA card, make sure config activated card (intel?) as Card0
 cat <<'EOF'> /etc/X11/xorg.conf
@@ -114,7 +115,8 @@ Section "Device"
     #Option "AccelMethod" "sna"
     Identifier  "Card0"
 #    Driver      "vesa"
-    Driver      "intel"
+#    Driver      "intel"
+    Driver      "scfb"
     BusID       "PCI:0:2:0"
 EndSection
 
