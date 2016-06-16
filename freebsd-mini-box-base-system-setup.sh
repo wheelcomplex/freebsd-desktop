@@ -321,7 +321,7 @@ cat /boot/loader.conf
 cat <<'EOF' >> /etc/rc.conf
 #
 # kernel modules
-kld_list="if_bridge bridgestp fdescfs linux linprocfs wlan_xauth snd_driver coretemp"
+kld_list="geom_uzip if_bridge bridgestp fdescfs linux linprocfs wlan_xauth snd_driver coretemp"
 #
 sshd_enable="YES"
 moused_enable="YES"
