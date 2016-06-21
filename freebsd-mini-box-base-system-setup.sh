@@ -16,7 +16,7 @@ pw usermod root -s /bin/sh
 
 # allow wheel group sudo
 
-sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -y bash wget sudo rsync && ln -s /usr/local/bin/bash /bin/bash && \
+sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -y bash wget sudo rsync && ln -s /usr/local/bin/bash /bin/bash;\
 mount -t fdescfs fdesc /dev/fd && echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers && \
 cat /usr/local/etc/sudoers|tail -n 10
 
@@ -130,7 +130,8 @@ echo "n" | pkg install $target > $tmpfile 2>&1
 list=`cat $tmpfile | grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| grep -v "The process will"|grep -v "to be downloaded."| grep -v "Proceed with this action"| awk -F': ' '{print $1}'`;
 dlinfo=`cat $tmpfile |grep "to be downloaded."`
 
-test -z "$dlinfo" && dlinfo="0 KiB to be downloaded."
+needl=1
+test -z "$dlinfo" && dlinfo="0 KiB to be downloaded." && needl=0
 
 echo "$dlinfo ..."
 echo " ---"
@@ -145,23 +146,34 @@ maxjobs(){
         else
             max=5
         fi
-        test -n "$verb" && echo "waiting for max jobs $max ..."
+        test -n "$verb" && echo "`date` waiting for max jobs $max ..."
+        statcnt=0
         while [ : ]
         do
             if [ `jobs 2>&1 | grep -ic 'running'` -le $max ]
             then
                 return 0
             fi
+            let statcnt=$statcnt+1 >/dev/null 2>&1
+            if [ $statcnt -eq 10 -a -n "$verb" ]
+            then
+                statcnt=0
+                echo "`date` waiting for ..."
+                ps axuww| grep 'pkg fetch' | grep -v grep | awk -F'-y ' '{print $2}'
+            fi
             sleep 1
         done
 }
 
-for onepkg in $list
-do 
-    maxjobs 8;echo $onepkg;
-    pkg fetch -y $onepkg > /dev/null & 
-done
-maxjobs 0 verb
+if [ $needl -eq 1 ]
+then
+    for onepkg in $list
+    do 
+        maxjobs 8;echo $onepkg;
+        pkg fetch -y $onepkg > /dev/null & 
+    done
+    maxjobs 0 verb
+fi
 if [ "$act" = 'fetch' ]
 then
     echo ""
@@ -170,7 +182,6 @@ fi
 pkg install -y $target
 exit $?
 #
-
 EOF
 
 chmod +x /usr/local/sbin/fastpkg
@@ -599,7 +610,6 @@ exit $exitcode
 EOF
 
 chmod +x /sbin/ifaceboot
-
 
 # start on boot
 cat <<'EOF' >> /etc/rc.local

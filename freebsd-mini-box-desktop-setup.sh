@@ -22,8 +22,10 @@
 
 allxfce4=`pkg search xfce | grep '^xfce' | awk '{print $1}'`
 
-sudo pkgloop install -y ${allxfce4} git-gui xorg xf86-video-scfb xdm slim xlockmore chromium meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin \
-zh-fcitx-table-extra zh-fcitx-configtool geany virtualbox-ose apache-openoffice virt-viewer openjdk icedtea-web
+pkgloop install -y ${allxfce4} git-gui xorg xf86-video-scfb xdm slim xlockmore chromium meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin \
+zh-fcitx-table-extra zh-fcitx-configtool geany virt-viewer openjdk icedtea-web
+
+pkgloop install -y virtualbox-ose apache-openoffice
 
 # virtualbox-ose-additions virtualbox-ose-kmod
 
@@ -442,6 +444,7 @@ EOF
 #
 # should already exist
 #
+mkdir -p /usr/local/share/xsessions/
 test ! -f /usr/local/share/xsessions/xfce.desktop && cat <<'EOF' > /usr/local/share/xsessions/xfce.desktop
 [Desktop Entry]
 Version=1.0
@@ -497,7 +500,9 @@ locale -a
 #
 # https://www.b1c1l1.com/blog/2011/05/09/using-utf-8-unicode-on-freebsd/
 #
-
+grep -q 'LC_COLLATE=C' /etc/login.conf
+if [ $? -ne 0 ]
+then
 cat <<'EOF' > /tmp/utf8.patch
 --- /etc/login.conf.orig_TAB_2016-06-01 19:36:34.034145000 +0800
 +++ /etc/login.conf_TAB_2016-06-01 19:40:12.960218000 +0800
@@ -527,6 +532,8 @@ ttt=`echo -e -n "\t"`
 
 sed -i -e "s#_TAB_#$ttt#g" /tmp/utf8.patch && patch -p0 < /tmp/utf8.patch
 sed -i -e 's#:setenv=MAIL=/var/mail/$,BLOCKSIZE=K:\\#:setenv=MAIL=/var/mail/$,BLOCKSIZE=K,LC_COLLATE=C:\\#g' /etc/login.conf
+
+fi
 
 cap_mkdb /etc/login.conf
 
@@ -626,9 +633,8 @@ chmod +x /usr/bin/fcitx-autostart
 # https://www.freebsd.org/doc/handbook/users-synopsis.html
 #
 
-sudo pw usermod rhinofly -s /usr/local/bin/bash
-
-sudo pw groupmod video -m rhinofly 2>/dev/null || sudo pw groupmod wheel -m rhinofly
+pw usermod rhinofly -s /usr/local/bin/bash
+pw groupmod video -m rhinofly 2>/dev/null || sudo pw groupmod wheel -m rhinofly
 
 #
 # config xfce startup as rhinofly
@@ -639,8 +645,7 @@ su - rhinofly
 # fix ssh-copyid: no keys found
 test ! -f .ssh/id_rsa && ssh-keygen
 
-ssh-add
-ssh-add -L
+ssh-add && ssh-add -L
 
 # for xdm/slim
 
