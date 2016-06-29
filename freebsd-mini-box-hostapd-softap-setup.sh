@@ -4,7 +4,7 @@
 
 /sbin/ifaceboot wlan0 ath0 wlanmode hostap up
 
-/sbin/ifaceboot bridge0 addm em1 addm em2 addm em3 addm wlan0 inet 172.236.127.43/24
+/sbin/ifaceboot bridge0 addm em1 addm em2 addm em3 addm wlan0 inet 172.236.150.43/24
 
 #
 
@@ -16,7 +16,7 @@ cat <<'EOF' >> /etc/rc.local
 /sbin/ifconfig wlan0 txpower 5
 #
 
-/sbin/ifaceboot bridge0 addm em1 addm em2 addm em3 addm wlan0 inet 172.236.127.43/24
+/sbin/ifaceboot bridge0 addm em1 addm em2 addm em3 addm wlan0 inet 172.236.150.43/24
 
 #
 EOF
@@ -32,7 +32,7 @@ cat <<'EOF' >> /etc/rc.local
 /sbin/ifconfig wlan0 txpower 5
 #
 
-/sbin/ifaceboot bridge0 addm alc0 addm wlan0 ether 90:e6:ba:2b:e7:7f inet DHCP
+/sbin/ifaceboot bridge0 addm re0 addm wlan0 ether 90:e6:ba:2b:e7:7f inet DHCP
 
 #
 EOF
@@ -50,7 +50,7 @@ pkg install -y hostapd pciutils usbutils
 
 dmesg | grep -C 10 -i wlan
 
-lspci
+lspci && usbconfig list && lsusb
 
 # ath0: MAC/BBP RT3070 (rev 0x0201), RF RT3020 (MIMO 1T1R), address 10:6f:3f:2c:09:fb
 
@@ -120,22 +120,379 @@ cat <<'EOF' >> /etc/rc.conf
 #
 hostapd_enable="YES"
 #
+gateway_enable="YES"
+#
+#
 EOF
 
 #
 
-#### # start on boot
-#### cat <<'EOF' >> /etc/rc.local
-#### #
-#### # load xauth or you will failed
-#### /sbin/kldload wlan_xauth 2>/dev/null
-#### 
-#### /etc/rc.d/hostapd stop
-#### sleep 5
-#### /etc/rc.d/hostapd start
-#### 
-#### #
-#### EOF
+# start on boot
+cat <<'EOF' >> /etc/rc.local
+#
+# load xauth or you will failed
+
+/sbin/kldload wlan_xauth 2>/dev/null
+/sbin/kldload wlan_ccmp 2>/dev/null
+/sbin/kldload wlan_tkip 2>/dev/null
+
+/etc/rc.d/hostapd stop
+sleep 5
+/etc/rc.d/hostapd start
+
+#
+EOF
+
+#
+# SNAT firewall
+#
+
+#
+
+cat <<'EOF' > /etc/pf.conf
+#
+
+# from: 
+# http://www.cyberciti.biz/faq/howto-setup-freebsd-ipfw-firewall/
+# https://www.howtoforge.com/setting_up_a_freebsd_wlan_access_point
+# https://forum.pfsense.org/index.php?topic=46172.0
+#
+
+#
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#
+# This configuration is set for use on a machine that is a router with
+# three (3) network cards:
+# ext_if - connects to the upstream link (cable/dsl modem, WAN, etc.)
+# wifi_if - wireless card for internal network
+#           (if none present, remove all references to it in this file)
+# lan_if  - wired card for internal network
+#           (if none present, remove all references to it in this file)
+#
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#------------------------------------------------------------------------
+# macros
+#------------------------------------------------------------------------
+logopt = "log"
+# interfaces
+ext_if  = "re0"
+ext_vpn_if  = "ng0"
+wifi_if = "wlan0"
+lan_if  = "bridge0"
+# publically accesible services (transport layer neutral)
+pubserv = "{ 22, 443, 80, 8090 }"
+# internally accessible services (transport layer neutral)
+lanserv = "{ 22, 53, 67, 80, 443, 8090 }"
+# samba ports (transport layer neutral)
+samba_ports = "{ 137, 138, 139, 445 }"
+# externally permitted inbound icmp types
+icmp_types = "echoreq"
+# internal network
+lan_net = "{ 172.236.150.0/24 }"
+# hosts granted acces to samba (cifs/smb) shares
+smb_net = "{ 172.236.150.0/27, 10.0.0.0/8 }"
+# block these networks
+# table = "{ 0.0.0.0/8, 10.0.0.0/8, 20.20.20.0/24, 127.0.0.0/8, \
+#         169.254.0.0/16, 172.16.0.0/12,  192.0.2.0/24, 172.236.150.0/16, \
+#         224.0.0.0/3,    255.255.255.255 }"
+# table = "{ 127.0.0.99/32 }"
+#------------------------------------------------------------------------
+# options
+#------------------------------------------------------------------------
+# config
+set block-policy return
+set loginterface $ext_if
+set loginterface $ext_vpn_if
+set skip on lo0
+# scrub
+#scrub all reassemble tcp no-df
+#scrub in all fragment reassemble
+scrub out all random-id
+#------------------------------------------------------------------------
+# redirection (and nat, too!)
+#------------------------------------------------------------------------
+# network address translation
+# for pptp/gre
+no nat on $ext_if proto gre from any to any
+nat on $ext_if from $lan_net to any -> ($ext_if)
+no nat on $ext_vpn_if proto gre from any to any
+nat on $ext_vpn_if from $lan_net to any -> ($ext_vpn_if)
+#------------------------------------------------------------------------
+# firewall policy
+#------------------------------------------------------------------------
+# restrictive default rules
+block all
+block return-rst  in  $logopt on $ext_if proto tcp all
+block return-icmp in  $logopt on $ext_if proto udp all
+block             in  $logopt on $ext_if proto icmp all
+block             out $logopt on $ext_if all
+
+block return-rst  in  $logopt on $ext_vpn_if proto tcp all
+block return-icmp in  $logopt on $ext_vpn_if proto udp all
+block             in  $logopt on $ext_vpn_if proto icmp all
+block             out $logopt on $ext_vpn_if all
+
+# trust localhost
+pass in  quick on lo0 all
+pass out quick on lo0 all
+# anti spoofing
+
+block drop in  $logopt quick on $ext_if from any to any
+block drop out $logopt quick on $ext_if from any to any
+
+block drop in  $logopt quick on $ext_vpn_if from any to any
+block drop out $logopt quick on $ext_vpn_if from any to any
+antispoof for { $lan_if, $wifi_if, $ext_if, $ext_vpn_if }
+
+# anti fake return-scans
+block  return-rst  out on $ext_if proto tcp all 
+block  return-rst  in  on $ext_if proto tcp all 
+block  return-icmp out on $ext_if proto udp all
+block  return-icmp in  on $ext_if proto udp all 
+
+block  return-rst  out on $ext_vpn_if proto tcp all 
+block  return-rst  in  on $ext_vpn_if proto tcp all 
+block  return-icmp out on $ext_vpn_if proto udp all
+block  return-icmp in  on $ext_vpn_if proto udp all 
+
+# toy with script kiddies scanning us
+block in $logopt quick proto tcp flags FUP/WEUAPRSF 
+block in $logopt quick proto tcp flags WEUAPRSF/WEUAPRSF 
+block in $logopt quick proto tcp flags SRAFU/WEUAPRSF 
+block in $logopt quick proto tcp flags /WEUAPRSF 
+block in $logopt quick proto tcp flags SR/SR 
+block in $logopt quick proto tcp flags SF/SF 
+# open firewall fully
+# warning: insecure. 'nuff said.
+#pass in  quick all
+#pass out quick all
+# allow permitted icmp
+pass in inet proto icmp all icmp-type $icmp_types keep state
+# allow permitted services
+pass in on $ext_if            inet proto tcp       from any      to any port $pubserv flags S/SA keep state
+
+# pass in on $ext_vpn_if        inet proto tcp       from any      to any port $pubserv flags S/SA keep state
+
+pass in quick on {$lan_if $wifi_if}                      from any to any                               keep state
+# pass in on {$lan_if $wifi_if} inet proto {tcp udp} from $lan_net to any port $lanserv            keep state
+# pass in on {$lan_if $wifi_if} inet proto {tcp udp} from $smb_net to any port $samba_ports        keep state
+# permit access between LAN hosts
+pass in  from $lan_net to $lan_net keep state
+pass out from $lan_net to $lan_net keep state
+# permit full outbound access 
+# warning: potentially insecure. you may wish to lock down outbound access.
+pass out from any to any keep state
+#
+EOF
+
+#
+
+cat <<'EOF' > /etc/pf.conf
+#
+# simple pf
+#
+#------------------------------------------------------------------------
+# macros
+#------------------------------------------------------------------------
+#
+# interfaces
+ext_if  = "re0"
+ext_vpn_if  = "ng0"
+lan_if = "bridge0"
+
+skipped_if = "{ lo }"
+
+# Transparent Proxy
+http_port = "80"
+cache_host = "127.0.0.1"
+cache_port = "9080"
+
+dns_port = "53"
+dnscache_host = "127.0.0.1"
+dnscache_port = "53"
+
+#------------------------------------------------------------------------
+# options
+#------------------------------------------------------------------------
+# config
+set block-policy return
+set loginterface $ext_if
+set loginterface $ext_vpn_if
+set skip on $skipped_if
+set state-policy if-bound
+
+# scrub
+scrub all reassemble tcp no-df
+scrub in all fragment reassemble
+scrub out all random-id
+
+#------------------------------------------------------------------------
+# redirection (and nat, too!)
+#------------------------------------------------------------------------
+# network address translation
+
+# for pptp/gre
+# no nat on $ext_if proto gre from any to any
+# no nat on $ext_vpn_if proto gre from any to any
+
+nat on $ext_if inet from ! ($ext_if) to any -> ($ext_if)
+nat on $ext_vpn_if inet from ! ($ext_vpn_if) to any -> ($ext_vpn_if)
+
+# redirect only IPv4 web traffic to squid 
+#rdr pass on $lan_if inet proto tcp from any to any port $http_port -> $cache_host port $cache_port
+
+# redirect dns traffic to local dnsmasq 
+rdr pass on $lan_if inet proto tcp from any to any port $dns_port -> $dnscache_host port $dnscache_port
+
+#------------------------------------------------------------------------
+# firewall policy
+#------------------------------------------------------------------------
+# default pass
+pass in quick from any to any
+pass out quick from any to any
+#
+EOF
+
+#
+
+cat <<'EOF'> /usr/sbin/pfsess
+#!/bin/sh
+#
+# check kmod of pf
+#
+
+kldload pf
+kldload pflog
+
+pfctl -e
+# pf enabled
+
+echo "/etc/pf.conf"
+pfctl -vnf /etc/pf.conf
+
+echo ""
+errcode=0
+if [ "$1" = "stop" -o "$1" = "start" ]
+then
+    pfctl -F nat && pfctl -F queue && pfctl -F rules
+    errcode=$?
+    sleep 1 
+fi
+if [ "$1" = "start" ]
+then
+    pfctl -f /etc/pf.conf
+    errcode=$?
+    sleep 1 
+fi
+#
+echo "pf state"
+pfctl -s rules && pfctl -s nat && pfctl -s state
+#
+exit $errcode
+#
+EOF
+
+chmod +x /usr/sbin/pfsess
+
+/usr/sbin/pfsess start
+
+# pfctl -s all
+
+#      -F modifier
+#              Flush the filter parameters specified by modifier (may be
+#              abbreviated):
+# 
+#              -F nat        Flush the NAT rules.
+#              -F queue      Flush the queue rules.
+#              -F rules      Flush the filter rules.
+#              -F states     Flush the state table (NAT and filter).
+#              -F Sources    Flush the source tracking table.
+#              -F info       Flush the filter information (statistics that are
+#                            not bound to rules).
+#              -F Tables     Flush the tables.
+#              -F osfp       Flush the passive operating system fingerprints.
+#              -F all        Flush all of the above.
+# 
+
+cat <<'EOF' >> /etc/rc.conf
+#
+### http://www.freebsd.org/doc/en_US.ISO8859-1/books/handbook/firewalls-pf.html
+pf_enable="YES"                 # Set to YES to enable packet filter (pf)
+pf_rules="/etc/pf.conf"         # rules definition file for pf
+pf_program="/sbin/pfctl"        # where the pfctl program lives
+pf_flags=""                     # additional flags for pfctl
+pflog_enable="YES"              # Set to YES to enable packet filter logging
+pflog_logfile="/var/log/pflog"  # where pflogd should store the logfile
+#
+EOF
+
+#
+# make pptp snat work
+#
+# https://forum.pfsense.org/index.php?topic=46172.0
+#
+
+#
+# ipfw default to block, setup rules first
+#
+
+cat <<'EOF' > /etc/rc.pptp.ipfw
+#!/bin/sh
+
+# from: 
+# http://www.cyberciti.biz/faq/howto-setup-freebsd-ipfw-firewall/
+# https://www.howtoforge.com/setting_up_a_freebsd_wlan_access_point
+# https://forum.pfsense.org/index.php?topic=46172.0
+#
+# ipfw work with pf for pptp/gre
+#
+
+kldload libalias
+kldload ipfw_nat
+
+date >> /root/ipfw.list
+echo "ARGS: $@" >> /root/ipfw.list
+ipfw list >> /root/ipfw.list
+date >> /root/ipfw.list
+
+ext_if="re0"
+ext_vpn_if="ng0"
+
+#
+if [ -z "$SSH_CONNECTION" ]
+    then
+    ipfw -q -f flush
+fi
+
+# default open
+ipfw add 10 allow all from any to any
+
+#
+ipfw nat 1 config if $ext_if same_ports reset unreg_only
+ipfw nat 2 config if $ext_vpn_if same_ports reset unreg_only
+
+ipfw add 1000 nat 1 gre from any to any
+
+ipfw list
+
+date >> /root/ipfw.list
+ipfw list >> /root/ipfw.list
+date >> /root/ipfw.list
+
+#
+EOF
+
+chmod +x /etc/rc.pptp.ipfw
+
+/etc/rc.pptp.ipfw start
+
+cat <<'EOF' >> /etc/rc.conf
+#
+firewall_enable="YES"
+firewall_script="/etc/rc.pptp.ipfw"
+#
+EOF
+
 
 #
 
@@ -335,331 +692,6 @@ http_proxy='' wget -S http://127.0.0.1/ -O -
 http_proxy='http://127.0.0.1:9080' wget -S --max-redirect=0 http://github.com/ -O -
 
 #
-
-#
-# SNAT firewall
-#
-
-#
-
-cat <<'EOF' > /etc/pf.conf
-#
-
-# from: 
-# http://www.cyberciti.biz/faq/howto-setup-freebsd-ipfw-firewall/
-# https://www.howtoforge.com/setting_up_a_freebsd_wlan_access_point
-# https://forum.pfsense.org/index.php?topic=46172.0
-#
-
-#
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-#
-# This configuration is set for use on a machine that is a router with
-# three (3) network cards:
-# ext_if - connects to the upstream link (cable/dsl modem, WAN, etc.)
-# wifi_if - wireless card for internal network
-#           (if none present, remove all references to it in this file)
-# lan_if  - wired card for internal network
-#           (if none present, remove all references to it in this file)
-#
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-#------------------------------------------------------------------------
-# macros
-#------------------------------------------------------------------------
-logopt = "log"
-# interfaces
-ext_if  = "em0"
-ext_vpn_if  = "ng0"
-wifi_if = "wlan0"
-lan_if  = "bridge0"
-# publically accesible services (transport layer neutral)
-pubserv = "{ 22, 443, 80, 8090 }"
-# internally accessible services (transport layer neutral)
-lanserv = "{ 22, 53, 67, 80, 443, 8090 }"
-# samba ports (transport layer neutral)
-samba_ports = "{ 137, 138, 139, 445 }"
-# externally permitted inbound icmp types
-icmp_types = "echoreq"
-# internal network
-lan_net = "{ 172.236.127.0/24 }"
-# hosts granted acces to samba (cifs/smb) shares
-smb_net = "{ 172.236.127.0/27, 10.0.0.0/8 }"
-# block these networks
-# table = "{ 0.0.0.0/8, 10.0.0.0/8, 20.20.20.0/24, 127.0.0.0/8, \
-#         169.254.0.0/16, 172.16.0.0/12,  192.0.2.0/24, 172.236.127.0/16, \
-#         224.0.0.0/3,    255.255.255.255 }"
-# table = "{ 127.0.0.99/32 }"
-#------------------------------------------------------------------------
-# options
-#------------------------------------------------------------------------
-# config
-set block-policy return
-set loginterface $ext_if
-set loginterface $ext_vpn_if
-set skip on lo0
-# scrub
-#scrub all reassemble tcp no-df
-#scrub in all fragment reassemble
-scrub out all random-id
-#------------------------------------------------------------------------
-# redirection (and nat, too!)
-#------------------------------------------------------------------------
-# network address translation
-# for pptp/gre
-no nat on $ext_if proto gre from any to any
-nat on $ext_if from $lan_net to any -> ($ext_if)
-no nat on $ext_vpn_if proto gre from any to any
-nat on $ext_vpn_if from $lan_net to any -> ($ext_vpn_if)
-#------------------------------------------------------------------------
-# firewall policy
-#------------------------------------------------------------------------
-# restrictive default rules
-block all
-block return-rst  in  $logopt on $ext_if proto tcp all
-block return-icmp in  $logopt on $ext_if proto udp all
-block             in  $logopt on $ext_if proto icmp all
-block             out $logopt on $ext_if all
-
-block return-rst  in  $logopt on $ext_vpn_if proto tcp all
-block return-icmp in  $logopt on $ext_vpn_if proto udp all
-block             in  $logopt on $ext_vpn_if proto icmp all
-block             out $logopt on $ext_vpn_if all
-
-# trust localhost
-pass in  quick on lo0 all
-pass out quick on lo0 all
-# anti spoofing
-
-block drop in  $logopt quick on $ext_if from any to any
-block drop out $logopt quick on $ext_if from any to any
-
-block drop in  $logopt quick on $ext_vpn_if from any to any
-block drop out $logopt quick on $ext_vpn_if from any to any
-antispoof for { $lan_if, $wifi_if, $ext_if, $ext_vpn_if }
-
-# anti fake return-scans
-block  return-rst  out on $ext_if proto tcp all 
-block  return-rst  in  on $ext_if proto tcp all 
-block  return-icmp out on $ext_if proto udp all
-block  return-icmp in  on $ext_if proto udp all 
-
-block  return-rst  out on $ext_vpn_if proto tcp all 
-block  return-rst  in  on $ext_vpn_if proto tcp all 
-block  return-icmp out on $ext_vpn_if proto udp all
-block  return-icmp in  on $ext_vpn_if proto udp all 
-
-# toy with script kiddies scanning us
-block in $logopt quick proto tcp flags FUP/WEUAPRSF 
-block in $logopt quick proto tcp flags WEUAPRSF/WEUAPRSF 
-block in $logopt quick proto tcp flags SRAFU/WEUAPRSF 
-block in $logopt quick proto tcp flags /WEUAPRSF 
-block in $logopt quick proto tcp flags SR/SR 
-block in $logopt quick proto tcp flags SF/SF 
-# open firewall fully
-# warning: insecure. 'nuff said.
-#pass in  quick all
-#pass out quick all
-# allow permitted icmp
-pass in inet proto icmp all icmp-type $icmp_types keep state
-# allow permitted services
-pass in on $ext_if            inet proto tcp       from any      to any port $pubserv flags S/SA keep state
-
-# pass in on $ext_vpn_if        inet proto tcp       from any      to any port $pubserv flags S/SA keep state
-
-pass in quick on {$lan_if $wifi_if}                      from any to any                               keep state
-# pass in on {$lan_if $wifi_if} inet proto {tcp udp} from $lan_net to any port $lanserv            keep state
-# pass in on {$lan_if $wifi_if} inet proto {tcp udp} from $smb_net to any port $samba_ports        keep state
-# permit access between LAN hosts
-pass in  from $lan_net to $lan_net keep state
-pass out from $lan_net to $lan_net keep state
-# permit full outbound access 
-# warning: potentially insecure. you may wish to lock down outbound access.
-pass out from any to any keep state
-#
-EOF
-
-#
-
-cat <<'EOF' > /etc/pf.conf
-#
-# simple pf
-#
-#------------------------------------------------------------------------
-# macros
-#------------------------------------------------------------------------
-#
-logopt = "log"
-# interfaces
-ext_if  = "alc0"
-ext_vpn_if  = "ng0"
-lan_if  = "bridge0"
-
-skipped_if = "{ lo, em1, em2, em3, ath0, ath0, re0, wlan0 }"
-
-# internal network
-lan_net = "{ 172.236.127.0/24 , 172.236.128.0/24 }"
-
-# Transparent Proxy
-http_port = "80"
-cache_host = "127.0.0.1"
-cache_port = "9080"
-
-dns_port = "53"
-dnscache_host = "127.0.0.1"
-dnscache_port = "53"
-
-#------------------------------------------------------------------------
-# options
-#------------------------------------------------------------------------
-# config
-set block-policy return
-set loginterface $ext_if
-set loginterface $ext_vpn_if
-set skip on $skipped_if
-set state-policy if-bound
-
-# scrub
-scrub all reassemble tcp no-df
-scrub in all fragment reassemble
-scrub out all random-id
-
-#------------------------------------------------------------------------
-# redirection (and nat, too!)
-#------------------------------------------------------------------------
-# network address translation
-# for pptp/gre
-no nat on $ext_if proto gre from any to any
-nat on $ext_if from $lan_net to any -> ($ext_if)
-no nat on $ext_vpn_if proto gre from any to any
-nat on $ext_vpn_if from $lan_net to any -> ($ext_vpn_if)
-
-# redirect only IPv4 web traffic to squid 
-#rdr pass on $lan_if inet proto tcp from $lan_net to any port $http_port -> $cache_host port $cache_port
-
-# redirect only IPv4 web traffic to squid 
-rdr pass on $lan_if inet proto tcp from $lan_net to any port $dns_port -> $dnscache_host port $dnscache_port
-
-#------------------------------------------------------------------------
-# firewall policy
-#------------------------------------------------------------------------
-# default pass
-pass in quick from any to any
-pass out quick from any to any
-#
-EOF
-
-
-#
-# check kmod of pf
-#
-
-kldload pf
-kldload pflog
-
-pfctl -e
-# pf enabled
-
-pfctl -vnf /etc/pf.conf
-
-#
-
-pfctl -F nat && pfctl -F queue && pfctl -F rules && pfctl -f /etc/pf.conf && pfctl -s rules && pfctl -s nat && sleep 1 && pfctl -s state
-
-pfctl -s rules && pfctl -s nat && echo "----" && sleep 1 && pfctl -s state
-
-# pfctl -s all
-
-#      -F modifier
-#              Flush the filter parameters specified by modifier (may be
-#              abbreviated):
-# 
-#              -F nat        Flush the NAT rules.
-#              -F queue      Flush the queue rules.
-#              -F rules      Flush the filter rules.
-#              -F states     Flush the state table (NAT and filter).
-#              -F Sources    Flush the source tracking table.
-#              -F info       Flush the filter information (statistics that are
-#                            not bound to rules).
-#              -F Tables     Flush the tables.
-#              -F osfp       Flush the passive operating system fingerprints.
-#              -F all        Flush all of the above.
-# 
-
-#
-# make pptp snat work
-#
-# https://forum.pfsense.org/index.php?topic=46172.0
-#
-
-#
-# ipfw default to block, setup rules first
-#
-
-cat <<'EOF' > /etc/rc.pptp.ipfw
-#!/bin/sh
-
-# from: 
-# http://www.cyberciti.biz/faq/howto-setup-freebsd-ipfw-firewall/
-# https://www.howtoforge.com/setting_up_a_freebsd_wlan_access_point
-# https://forum.pfsense.org/index.php?topic=46172.0
-#
-# ipfw work with pf for pptp/gre
-#
-
-kldload libalias
-kldload ipfw_nat
-
-date >> /root/ipfw.list
-echo "ARGS: $@" >> /root/ipfw.list
-ipfw list >> /root/ipfw.list
-date >> /root/ipfw.list
-
-ext_if="alc0"
-ext_vpn_if="ng0"
-
-#
-if [ -z "$SSH_CONNECTION" ]
-    then
-    ipfw -q -f flush
-fi
-
-# default open
-ipfw add 10 allow all from any to any
-
-#
-ipfw nat 1 config if $ext_if same_ports reset unreg_only
-ipfw nat 2 config if $ext_vpn_if same_ports reset unreg_only
-
-ipfw add 1000 nat 1 gre from any to any
-
-ipfw list
-
-date >> /root/ipfw.list
-ipfw list >> /root/ipfw.list
-date >> /root/ipfw.list
-
-#
-EOF
-
-chmod +x /etc/rc.pptp.ipfw
-
-/etc/rc.pptp.ipfw start
-
-cat <<'EOF' >> /etc/rc.conf
-#
-### http://www.freebsd.org/doc/en_US.ISO8859-1/books/handbook/firewalls-pf.html
-pf_enable="YES"                 # Set to YES to enable packet filter (pf)
-pf_rules="/etc/pf.conf"         # rules definition file for pf
-pf_program="/sbin/pfctl"        # where the pfctl program lives
-pf_flags=""                     # additional flags for pfctl
-pflog_enable="YES"              # Set to YES to enable packet filter logging
-pflog_logfile="/var/log/pflog"  # where pflogd should store the logfile
-#
-firewall_enable="YES"
-firewall_script="/etc/rc.pptp.ipfw"
-#
-EOF
-
 
 #
 # pptp server + client by mpd5

@@ -619,7 +619,7 @@ cat <<'EOF' >> /etc/rc.local
 #    /sbin/ifconfig wlan0 txpower 5
 #
 
-#    /sbin/ifaceboot bridge0 addm em1 addm em2 addm em3 addm wlan0 inet 172.236.127.43/24
+#    /sbin/ifaceboot bridge0 addm em1 addm em2 addm em3 addm wlan0 inet 172.236.150.43/24
 
 #
 EOF
@@ -654,7 +654,7 @@ log-queries
 #
 # enable dhcp server
 #
-dhcp-range=172.236.127.51,172.236.127.90,2400h
+dhcp-range=172.236.150.51,172.236.150.90,2400h
 #
 #
 log-dhcp
