@@ -23,16 +23,34 @@
 allxfce4=`pkg search xfce | grep '^xfce' | awk '{print $1}'`
 
 pkgloop install -y ${allxfce4} git-gui xorg xf86-video-scfb xdm slim xlockmore chromium meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin \
-zh-fcitx-table-extra zh-fcitx-configtool geany virt-viewer openjdk icedtea-web
+zh-fcitx-table-extra zh-fcitx-configtool geany virt-viewer openjdk icedtea-web jpeg-turbo gnome3-lite
 
-pkgloop install -y virtualbox-ose apache-openoffice
+pkgloop install -y virtualbox-ose libreoffice
 
 # virtualbox-ose-additions virtualbox-ose-kmod
 
 #
 # install virtualbox from ports
 # get list from make missing in /usr/ports/emulators/virtualbox-ose
-fastpkg install patch zip yasm pkgconf gsoap dejagnu expect xorg-macros libcheck xcb-proto makedepend libclc py27-markupsafe py27-babel py27-pytz py27-docutils py27-pytest py27-mock py27-pbr py27-pip py27-pytest-capturelog py27-pytest-timeout py27-pytest-xdist py27-setuptools_scm py27-execnet py27-pexpect py27-virtualenv py27-scripttest py27-pretend py27-freezegun py27-dateutil py27-nose py27-sqlite3 xmlto getopt docbook-xsl docbook docbook-sgml iso8879 docbook-xml xmlcharent sdocbook-xml w3m boehm-gc libatomic_ops asciidoc p5-Test-Exception p5-Sub-Uplevel p5-Test-NoWarnings p5-Test-Simple p5-Test-Warn p5-Test-Pod bzr cython py27-paramiko py27-cryptography py27-cffi py27-pycparser py27-pyasn1 py27-idna py27-ipaddress py27-enum34 py27-iso8601 py27-ecdsa py27-funcsigs py27-pygments py27-alabaster py27-snowballstemmer py27-pystemmer py27-imagesize swig13 cmake scons libarchive liblz4 lzo2 cmake-modules ninja presentproto bigreqsproto xcmiscproto xf86bigfontproto nasm bdftopcf intltool p5-XML-Parser qt4-moc qt4-qmake qt4-rcc qt4-uic qt4-linguist qt4-designer qt4-declarative qt4-script qt4-sql qt4-svg qt4-xmlpatterns qt4-qt3support qt4-webkit v4l_compat qt4-assistant qt4-help qt4-clucene qt4-doc qt4-linguisttools py27-jinja py27-sphinx
+
+# https://forums.freebsd.org/threads/13883/
+## 
+## And if you mean "which port depends on which ports", either run pkg_info -rR <portglob> for an installed port, 
+## or run make build-depends-list && make run-depends-list in a port directory under /usr/ports. 
+## 
+## Finally: if you wonder which dependencies you still need to install for a port, run make missing in a port directory under /usr/ports.
+## 
+
+fastpkg install patch zip yasm pkgconf gsoap dejagnu expect xorg-macros libcheck xcb-proto makedepend libclc py27-markupsafe py27-babel py27-pytz \
+py27-docutils py27-pytest py27-mock py27-pbr py27-pip py27-pytest-capturelog py27-pytest-timeout py27-pytest-xdist py27-setuptools_scm \
+py27-execnet py27-pexpect py27-virtualenv py27-scripttest py27-pretend py27-freezegun py27-dateutil py27-nose py27-sqlite3 xmlto getopt docbook-xsl \
+docbook docbook-sgml iso8879 docbook-xml xmlcharent sdocbook-xml w3m boehm-gc libatomic_ops asciidoc p5-Test-Exception p5-Sub-Uplevel p5-Test-NoWarnings \
+p5-Test-Simple p5-Test-Warn p5-Test-Pod bzr cython py27-paramiko py27-cryptography py27-cffi py27-pycparser py27-pyasn1 py27-idna py27-ipaddress \
+py27-enum34 py27-iso8601 py27-ecdsa py27-funcsigs py27-pygments py27-alabaster py27-snowballstemmer py27-pystemmer py27-imagesize swig13 cmake \
+scons libarchive liblz4 lzo2 cmake-modules ninja presentproto bigreqsproto xcmiscproto xf86bigfontproto nasm bdftopcf intltool p5-XML-Parser qt4-moc \
+qt4-qmake qt4-rcc qt4-uic qt4-linguist qt4-designer qt4-declarative qt4-script qt4-sql qt4-svg qt4-xmlpatterns qt4-qt3support qt4-webkit \
+v4l_compat qt4-assistant qt4-help qt4-clucene qt4-doc qt4-linguisttools py27-jinja py27-sphinx gmake gsed texinfo help2man p5-Locale-gettext gettext-tools
+
 cd /usr/ports/emulators/virtualbox-ose && make fetch install clean
 
 # sudo pkgloop install -y gnome3-lite
@@ -45,8 +63,8 @@ kern.ipc.shm_allow_removed=1
 #
 EOF
 
-# workround: fix libkvm.so.7 not found from chrome
-# ln -s /lib/libkvm.so.6 /lib/libkvm.so.7
+# fix libkvm.so.7 not found from chrome
+# cd /usr/src/ && make world install?
 
 #
 # install https://github.com/jamiesonbecker/owa-user-agent/ if you access microsoft exchange OWA
@@ -465,6 +483,7 @@ ls -lah /usr/local/share/xsessions/
 # virtualbox
 #
 
+# on boot, or add to kld_list in rc.conf
 echo 'vboxdrv_load="YES"' >> /boot/loader.conf
 
 cat <<'EOF' >> /etc/rc.conf
@@ -490,117 +509,8 @@ pw groupmod wheel -m rhinofly
 # reboot to take effect
 
 #
-# UTF-8 and fcitx
+# fcitx
 #
-
-locale -a
-
-# https://fcitx-im.org/wiki/Configure_(Other)
-
-#
-# https://www.b1c1l1.com/blog/2011/05/09/using-utf-8-unicode-on-freebsd/
-#
-grep -q 'LC_COLLATE=C' /etc/login.conf
-if [ $? -ne 0 ]
-then
-cat <<'EOF' > /tmp/utf8.patch
---- /etc/login.conf.orig_TAB_2016-06-01 19:36:34.034145000 +0800
-+++ /etc/login.conf_TAB_2016-06-01 19:40:12.960218000 +0800
-@@ -26,7 +26,7 @@
- _TAB_:passwd_format=sha512:\
- _TAB_:copyright=/etc/COPYRIGHT:\
- _TAB_:welcome=/etc/motd:\
--_TAB_:setenv=MAIL=/var/mail/$,BLOCKSIZE=K:\
-+_TAB_:setenv=MAIL=/var/mail/$,BLOCKSIZE=K,LC_COLLATE=C:\
- _TAB_:path=/sbin /bin /usr/sbin /usr/bin /usr/local/sbin /usr/local/bin ~/bin:\
- _TAB_:nologin=/var/run/nologin:\
- _TAB_:cputime=unlimited:\
-@@ -46,7 +46,9 @@
- _TAB_:umtxp=unlimited:\
- _TAB_:priority=0:\
- _TAB_:ignoretime@:\
--_TAB_:umask=022:
-+_TAB_:umask=022:\
-+_TAB_:charset=UTF-8:\
-+_TAB_:lang=en_US.UTF-8:
- 
- 
- #
-EOF
-
-ttt=`echo -e -n "\t"`
-
-sed -i -e "s#_TAB_#$ttt#g" /tmp/utf8.patch && patch -p0 < /tmp/utf8.patch
-sed -i -e 's#:setenv=MAIL=/var/mail/$,BLOCKSIZE=K:\\#:setenv=MAIL=/var/mail/$,BLOCKSIZE=K,LC_COLLATE=C:\\#g' /etc/login.conf
-
-fi
-
-cap_mkdb /etc/login.conf
-
-su -
-
-locale
-
-### LANG=en_US.UTF-8
-### LC_CTYPE="en_US.UTF-8"
-### LC_COLLATE=C
-### LC_TIME="en_US.UTF-8"
-### LC_NUMERIC="en_US.UTF-8"
-### LC_MONETARY="en_US.UTF-8"
-### LC_MESSAGES="en_US.UTF-8"
-### LC_ALL=
-### 
-
-#
-
-cp -a /etc/profile /etc/profile.orig.$$
-
-# NOTE: overwrite
-cat <<'EOF' > /etc/profile
-#!/bin/sh
-# $FreeBSD: head/etc/profile 208116 2010-05-15 17:49:56Z jilles $
-#
-# System-wide .profile file for sh(1).
-#
-# Uncomment this to give you the default 4.2 behavior, where disk
-# information is shown in K-Blocks
-# BLOCKSIZE=K; export BLOCKSIZE
-#
-# For the setting of languages and character sets please see
-# login.conf(5) and in particular the charset and lang options.
-# For full locales list check /usr/share/locale/*
-# You should also read the setlocale(3) man page for information
-# on how to achieve more precise control of locale settings.
-#
-# Check system messages
-# msgs -q
-# Allow terminal messages
-# mesg y
-
-#
-# default
-#
-
-export GTK_IM_MODULE=fcitx
-export GTK3_IM_MODULE=fcitx
-export QT_IM_MODULE=fcitx
-export XMODIFIERS="@im=fcitx"
-
-export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/games:/usr/local/games"
-
-#
-# FreeBSD does not use follow setting ?
-#
-# LC_PAPER=en_US.UTF-8
-# LC_ADDRESS=en_US.UTF-8
-# LC_TELEPHONE=en_US.UTF-8
-# LC_IDENTIFICATION=en_US.UTF-8
-# LC_MEASUREMENT=en_US.UTF-8
-# LC_NAME=en_US.UTF-8
-#
-EOF
-
-source /etc/profile && locale
 
 #
 # configure fcitx input
@@ -651,38 +561,173 @@ ssh-add && ssh-add -L
 
 cat <<EOF > ${HOME}/.profile
 #!/bin/sh
-# $FreeBSD: head/etc/root/dot.profile 278616 2015-02-12 05:35:00Z cperciva $
+# $FreeBSD: head/etc${HOME}dot.profile 278616 2015-02-12 05:35:00Z cperciva $
 #
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:~/bin
 export PATH
+export HOME
 TERM=${TERM:-xterm}
 export TERM
 PAGER=more
 export PAGER
+
+test -s /etc/profile && . /etc/profile
+
 test -s ~/.shrc && . ~/.shrc
 #
-# ~/.profile: executed by the command interpreter for login shells.
-# This file is not read by bash(1), if ~/.bash_profile or ~/.bash_login
-# exists.
-# see /usr/share/doc/bash/examples/startup-files for examples.
-# the files are located in the bash-doc package.
 
-# the default umask is set in /etc/profile; for setting the umask
-# for ssh logins, install and configure the libpam-umask package.
-#umask 022
-
-# if running bash
-if [ -n "$BASH_VERSION" ]; then
-    # include .bashrc if it exists
-    if [ -f "$HOME/.bashrc" ]; then
-	. "$HOME/.bashrc"
-    fi
+if [ -f "$HOME/.bashrc" ]; then
+. "$HOME/.bashrc"
 fi
 
 # set PATH so it includes user's private bin if it exists
 if [ -d "$HOME/bin" ] ; then
     PATH="$HOME/bin:$PATH"
 fi
+EOF
+
+chmod +x ${HOME}/.profile
+
+cat <<'EOF'> ${HOME}/.bashrc
+# ~/.bashrc: executed by bash(1) for non-login shells.
+# see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
+# for examples
+
+# If not running interactively, don't do anything
+[ -z "$PS1" ] && return
+
+# don't put duplicate lines or lines starting with space in the history.
+# See bash(1) for more options
+HISTCONTROL=ignoreboth
+
+# append to the history file, don't overwrite it
+shopt -s histappend
+
+# for setting history length see HISTSIZE and HISTFILESIZE in bash(1)
+HISTSIZE=1000
+HISTFILESIZE=2000
+
+# check the window size after each command and, if necessary,
+# update the values of LINES and COLUMNS.
+shopt -s checkwinsize
+
+# If set, the pattern "**" used in a pathname expansion context will
+# match all files and zero or more directories and subdirectories.
+#shopt -s globstar
+
+# make less more friendly for non-text input files, see lesspipe(1)
+[ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
+
+# set variable identifying the chroot you work in (used in the prompt below)
+if [ -z "$debian_chroot" ] && [ -r /etc/debian_chroot ]; then
+    debian_chroot=$(cat /etc/debian_chroot)
+fi
+
+# set a fancy prompt (non-color, unless we know we "want" color)
+case "$TERM" in
+    xterm-color) color_prompt=yes;;
+esac
+
+# uncomment for a colored prompt, if the terminal has the capability; turned
+# off by default to not distract the user: the focus in a terminal window
+# should be on the output of commands, not on the prompt
+#force_color_prompt=yes
+
+if [ -n "$force_color_prompt" ]; then
+    if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null; then
+	# We have color support; assume it's compliant with Ecma-48
+	# (ISO/IEC-6429). (Lack of such support is extremely rare, and such
+	# a case would tend to support setf rather than setaf.)
+	color_prompt=yes
+    else
+	color_prompt=
+    fi
+fi
+
+if [ "$color_prompt" = yes ]; then
+    PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+else
+    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+fi
+unset color_prompt force_color_prompt
+
+# If this is an xterm set the title to user@host:dir
+case "$TERM" in
+xterm*|rxvt*)
+    PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u@\h: \w\a\]$PS1"
+    ;;
+*)
+    ;;
+esac
+
+# enable color support of ls and also add handy aliases
+if [ -x /usr/bin/dircolors ]; then
+    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+    alias ls='ls --color=auto'
+    #alias dir='dir --color=auto'
+    #alias vdir='vdir --color=auto'
+
+    alias grep='grep --color=auto'
+    alias fgrep='fgrep --color=auto'
+    alias egrep='egrep --color=auto'
+fi
+
+# some more ls aliases
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
+
+# Add an "alert" alias for long running commands.  Use like so:
+#   sleep 10; alert
+alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
+
+# Alias definitions.
+# You may want to put all your additions into a separate file like
+# ~/.bash_aliases, instead of adding them here directly.
+# See /usr/share/doc/bash-doc/examples in the bash-doc package.
+
+if [ -f ~/.bash_aliases ]; then
+    . ~/.bash_aliases
+fi
+
+# enable programmable completion features (you don't need to enable
+# this, if it's already enabled in /etc/bash.bashrc and /etc/profile
+# sources /etc/bash.bashrc).
+if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
+    . /etc/bash_completion
+fi
+
+#
+test -f "${HOME}/.env-all" && source "${HOME}/.env-all"
+#
+
+EOF
+
+chmod +x ${HOME}/.bashrc
+
+cat <<'EOF'> ${HOME}/.env-all
+#!/bin/bash
+
+test -z "$PATH" && export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:~/bin"
+
+#LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
+#unset LIBRARY_PATH
+
+#C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu
+#unset C_INCLUDE_PATH
+
+#CPLUS_INCLUDE_PATH=/usr/include/x86_64-linux-gnu
+#unset CPLUS_INCLUDE_PATH
+
+#export LIBRARY_PATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH
+#unset LIBRARY_PATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH
+
+# need for ctrl-s in vim
+# stty stop ''
+#
+[[ $PS1 && -f /usr/local/share/bash-completion/bash_completion.sh ]] && source /usr/local/share/bash-completion/bash_completion.sh
+test -x ${HOME}/.git-completion.bash && . ${HOME}/.git-completion.bash
+
 echo " ---"
 # start ssh-agent
 eval `ssh-agent -s`
@@ -690,9 +735,10 @@ ssh-add
 alias ssh="ssh -Y -X"
 echo "ssh X11 forward enabled"
 echo " ---"
+#
 EOF
 
-chmod +x ${HOME}/.profile
+chmod +x ${HOME}/.bashrc ${HOME}/.env-all
 
 
 # for xdm/slim

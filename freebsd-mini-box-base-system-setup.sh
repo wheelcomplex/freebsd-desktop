@@ -36,24 +36,14 @@ TERM=${TERM:-xterm}
 export TERM
 PAGER=more
 export PAGER
+
+test -s /etc/profile && . /etc/profile
+
 test -s ~/.shrc && . ~/.shrc
 #
-# ~/.profile: executed by the command interpreter for login shells.
-# This file is not read by bash(1), if ~/.bash_profile or ~/.bash_login
-# exists.
-# see /usr/share/doc/bash/examples/startup-files for examples.
-# the files are located in the bash-doc package.
 
-# the default umask is set in /etc/profile; for setting the umask
-# for ssh logins, install and configure the libpam-umask package.
-#umask 022
-
-# if running bash
-if [ -n "$BASH_VERSION" ]; then
-    # include .bashrc if it exists
-    if [ -f "$HOME/.bashrc" ]; then
-	. "$HOME/.bashrc"
-    fi
+if [ -f "$HOME/.bashrc" ]; then
+. "$HOME/.bashrc"
 fi
 
 # set PATH so it includes user's private bin if it exists
@@ -64,11 +54,161 @@ EOF
 
 chmod +x /root/.profile
 
-echo 'setenv SHELL /usr/local/bin/bash && sudo -s' >> /root/.cshrc
-echo 'export SHELL=/usr/local/bin/bash && sudo -s' >> /root/.shrc
-echo 'test -n "$PS1" && test -f /usr/local/share/bash-completion/bash_completion.sh && source /usr/local/share/bash-completion/bash_completion.sh' >> /root/.shrc
+cat <<'EOF'> /root/.bashrc
+# ~/.bashrc: executed by bash(1) for non-login shells.
+# see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
+# for examples
 
-chmod +x /root/.shrc /root/.cshrc
+# If not running interactively, don't do anything
+[ -z "$PS1" ] && return
+
+# don't put duplicate lines or lines starting with space in the history.
+# See bash(1) for more options
+HISTCONTROL=ignoreboth
+
+# append to the history file, don't overwrite it
+shopt -s histappend
+
+# for setting history length see HISTSIZE and HISTFILESIZE in bash(1)
+HISTSIZE=1000
+HISTFILESIZE=2000
+
+# check the window size after each command and, if necessary,
+# update the values of LINES and COLUMNS.
+shopt -s checkwinsize
+
+# If set, the pattern "**" used in a pathname expansion context will
+# match all files and zero or more directories and subdirectories.
+#shopt -s globstar
+
+# make less more friendly for non-text input files, see lesspipe(1)
+[ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
+
+# set variable identifying the chroot you work in (used in the prompt below)
+if [ -z "$debian_chroot" ] && [ -r /etc/debian_chroot ]; then
+    debian_chroot=$(cat /etc/debian_chroot)
+fi
+
+# set a fancy prompt (non-color, unless we know we "want" color)
+case "$TERM" in
+    xterm-color) color_prompt=yes;;
+esac
+
+# uncomment for a colored prompt, if the terminal has the capability; turned
+# off by default to not distract the user: the focus in a terminal window
+# should be on the output of commands, not on the prompt
+#force_color_prompt=yes
+
+if [ -n "$force_color_prompt" ]; then
+    if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null; then
+	# We have color support; assume it's compliant with Ecma-48
+	# (ISO/IEC-6429). (Lack of such support is extremely rare, and such
+	# a case would tend to support setf rather than setaf.)
+	color_prompt=yes
+    else
+	color_prompt=
+    fi
+fi
+
+if [ "$color_prompt" = yes ]; then
+    PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+else
+    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+fi
+unset color_prompt force_color_prompt
+
+# If this is an xterm set the title to user@host:dir
+case "$TERM" in
+xterm*|rxvt*)
+    PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u@\h: \w\a\]$PS1"
+    ;;
+*)
+    ;;
+esac
+
+# enable color support of ls and also add handy aliases
+if [ -x /usr/bin/dircolors ]; then
+    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+    alias ls='ls --color=auto'
+    #alias dir='dir --color=auto'
+    #alias vdir='vdir --color=auto'
+
+    alias grep='grep --color=auto'
+    alias fgrep='fgrep --color=auto'
+    alias egrep='egrep --color=auto'
+fi
+
+# some more ls aliases
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
+
+# Add an "alert" alias for long running commands.  Use like so:
+#   sleep 10; alert
+alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
+
+# Alias definitions.
+# You may want to put all your additions into a separate file like
+# ~/.bash_aliases, instead of adding them here directly.
+# See /usr/share/doc/bash-doc/examples in the bash-doc package.
+
+if [ -f ~/.bash_aliases ]; then
+    . ~/.bash_aliases
+fi
+
+# enable programmable completion features (you don't need to enable
+# this, if it's already enabled in /etc/bash.bashrc and /etc/profile
+# sources /etc/bash.bashrc).
+if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
+    . /etc/bash_completion
+fi
+
+#
+test -f "${HOME}/.env-all" && source "${HOME}/.env-all"
+#
+
+EOF
+
+cat <<'EOF'> /root/.env-all
+#!/bin/bash
+
+test -z "$PATH" && export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:~/bin"
+
+#LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
+#unset LIBRARY_PATH
+
+#C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu
+#unset C_INCLUDE_PATH
+
+#CPLUS_INCLUDE_PATH=/usr/include/x86_64-linux-gnu
+#unset CPLUS_INCLUDE_PATH
+
+#export LIBRARY_PATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH
+#unset LIBRARY_PATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH
+
+# need for ctrl-s in vim
+# stty stop ''
+#
+[[ $PS1 && -f /usr/local/share/bash-completion/bash_completion.sh ]] && source /usr/local/share/bash-completion/bash_completion.sh
+test -x ${HOME}/.git-completion.bash && . ${HOME}/.git-completion.bash
+
+echo " ---"
+# start ssh-agent
+eval `ssh-agent -s`
+ssh-add
+alias ssh="ssh -Y -X"
+echo "ssh X11 forward enabled"
+echo " ---"
+#
+EOF
+
+chmod +x /root/.shrc /root/.bashrc /root/.env-all
+
+#
+# root login with bash
+#
+
+test -x /usr/local/bin/bash && pw usermod root -s /usr/local/bin/bash || pw usermod root -s /bin/sh
 
 #
 # rhinofly login with bash
@@ -87,6 +227,9 @@ do
     gpart show $disk
     echo " -"
 done
+echo " -"
+camcontrol devlist
+echo " -"
 #
 EOF
 
@@ -150,7 +293,7 @@ echo "fast pkg ${act}ing $target ..."
 tmpfile="/tmp/fastpkg.$$.list"
 echo "n" | pkg install $target > $tmpfile 2>&1
 
-list=`cat $tmpfile | grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| grep -v "The process will"|grep -v "to be downloaded."| grep -v "Proceed with this action"| awk -F': ' '{print $1}'`;
+list=`cat $tmpfile | grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| grep -v 'Installed packages to be REINSTALLED:'| grep -v "The process will"|grep -v "to be downloaded."| grep -v "Proceed with this action"| grep -v 'ABI changed'| grep -v 'Number of packages to be'|awk -F': ' '{print $1}'| grep -v '^$'|awk '{print $1}'`;
 dlinfo=`cat $tmpfile |grep "to be downloaded."`
 
 needl=1
@@ -270,6 +413,8 @@ lspci
 
 lsusb
 
+usbconfig
+
 # 
 
 kldload snd_driver
@@ -293,8 +438,11 @@ camcontrol identify /dev/da0
 
 gpart show da0
 
-# check for TRIM support
+# check for TRIM support in ufs
 tunefs -p /dev/da0p1
+
+# check for TRIM support in zfs
+sysctl -a | grep trim | grep 'zfs'
 
 #
 # freebsd vs linux
@@ -353,9 +501,8 @@ cat /boot/loader.conf
 #
 
 cat <<'EOF' >> /etc/rc.conf
-#
 # kernel modules
-kld_list="geom_uzip if_bridge bridgestp fdescfs linux linprocfs wlan_xauth snd_driver coretemp"
+kld_list="geom_uzip if_bridge bridgestp fdescfs linux linprocfs wlan_xauth snd_driver coretemp vboxdrv"
 #
 sshd_enable="YES"
 moused_enable="YES"
@@ -370,7 +517,24 @@ syslogd_flags="-ss"
 #
 linux_enable="YES"
 #
-
+dnsmasq_enable="YES"
+#
+#
+dbus_enable="YES"
+hald_enable="YES"
+xdm_enable="YES"
+slim_enable="YES"
+gnome_enable="NO"
+#
+#
+### http://www.freebsd.org/doc/en_US.ISO8859-1/books/handbook/firewalls-pf.html
+pf_enable="YES"                 # Set to YES to enable packet filter (pf)
+pf_rules="/etc/pf.conf"         # rules definition file for pf
+pf_program="/sbin/pfctl"        # where the pfctl program lives
+pf_flags=""                     # additional flags for pfctl
+pflog_enable="YES"              # Set to YES to enable packet filter logging
+pflog_logfile="/var/log/pflog"  # where pflogd should store the logfile
+#
 EOF
 
 # coretemp
@@ -647,6 +811,121 @@ cat <<'EOF' >> /etc/rc.local
 #
 EOF
 
+
+#
+# UTF-8
+#
+
+locale -a
+
+# https://fcitx-im.org/wiki/Configure_(Other)
+
+#
+# https://www.b1c1l1.com/blog/2011/05/09/using-utf-8-unicode-on-freebsd/
+#
+grep -q 'LC_COLLATE=C' /etc/login.conf
+if [ $? -ne 0 ]
+then
+cat <<'EOF' > /tmp/utf8.patch
+--- /etc/login.conf.orig_TAB_2016-06-01 19:36:34.034145000 +0800
++++ /etc/login.conf_TAB_2016-06-01 19:40:12.960218000 +0800
+@@ -26,7 +26,7 @@
+ _TAB_:passwd_format=sha512:\
+ _TAB_:copyright=/etc/COPYRIGHT:\
+ _TAB_:welcome=/etc/motd:\
+-_TAB_:setenv=MAIL=/var/mail/$,BLOCKSIZE=K:\
++_TAB_:setenv=MAIL=/var/mail/$,BLOCKSIZE=K,LC_COLLATE=C:\
+ _TAB_:path=/sbin /bin /usr/sbin /usr/bin /usr/local/sbin /usr/local/bin ~/bin:\
+ _TAB_:nologin=/var/run/nologin:\
+ _TAB_:cputime=unlimited:\
+@@ -46,7 +46,9 @@
+ _TAB_:umtxp=unlimited:\
+ _TAB_:priority=0:\
+ _TAB_:ignoretime@:\
+-_TAB_:umask=022:
++_TAB_:umask=022:\
++_TAB_:charset=UTF-8:\
++_TAB_:lang=en_US.UTF-8:
+ 
+ 
+ #
+EOF
+
+ttt=`echo -e -n "\t"`
+
+sed -i -e "s#_TAB_#$ttt#g" /tmp/utf8.patch && patch -p0 < /tmp/utf8.patch
+sed -i -e 's#:setenv=MAIL=/var/mail/$,BLOCKSIZE=K:\\#:setenv=MAIL=/var/mail/$,BLOCKSIZE=K,LC_COLLATE=C:\\#g' /etc/login.conf
+
+fi
+
+cap_mkdb /etc/login.conf
+
+su -
+
+locale
+
+### LANG=en_US.UTF-8
+### LC_CTYPE="en_US.UTF-8"
+### LC_COLLATE=C
+### LC_TIME="en_US.UTF-8"
+### LC_NUMERIC="en_US.UTF-8"
+### LC_MONETARY="en_US.UTF-8"
+### LC_MESSAGES="en_US.UTF-8"
+### LC_ALL=
+### 
+
+#
+
+cp -a /etc/profile /etc/profile.orig.$$
+
+# NOTE: overwrite
+cat <<'EOF' > /etc/profile
+#!/bin/sh
+# $FreeBSD: head/etc/profile 208116 2010-05-15 17:49:56Z jilles $
+#
+# System-wide .profile file for sh(1).
+#
+# Uncomment this to give you the default 4.2 behavior, where disk
+# information is shown in K-Blocks
+# BLOCKSIZE=K; export BLOCKSIZE
+#
+# For the setting of languages and character sets please see
+# login.conf(5) and in particular the charset and lang options.
+# For full locales list check /usr/share/locale/*
+# You should also read the setlocale(3) man page for information
+# on how to achieve more precise control of locale settings.
+#
+# Check system messages
+# msgs -q
+# Allow terminal messages
+# mesg y
+
+#
+# default
+#
+
+export GTK_IM_MODULE=fcitx
+export GTK3_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS="@im=fcitx"
+
+export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/games:/usr/local/games"
+
+#
+# FreeBSD does not use follow setting ?
+#
+# LC_PAPER=en_US.UTF-8
+# LC_ADDRESS=en_US.UTF-8
+# LC_TELEPHONE=en_US.UTF-8
+# LC_IDENTIFICATION=en_US.UTF-8
+# LC_MEASUREMENT=en_US.UTF-8
+# LC_NAME=en_US.UTF-8
+#
+EOF
+
+source /etc/profile && locale
+
+
 #
 # dnsmasq dhcp server(with dns)
 #
@@ -753,14 +1032,6 @@ chflags schg /etc/resolv.conf
 # chflags noschg /etc/resolv.conf
 # or
 # chflags 0 /etc/resolv.conf
-
-#
-
-cat <<'EOF' >> /etc/rc.conf
-#
-dnsmasq_enable="YES"
-#
-EOF
 
 #
 
