@@ -15,7 +15,7 @@ let g:loaded_netrw       = 1
 let g:loaded_netrwPlugin = 1
 
 " for https://github.com/Shougo/neocomplete.vim
-let g:neocomplete#enable_at_startup = 1
+let g:neocomplete#enable_at_startup = 0
 
 " set ui colors
 colorscheme desert
@@ -199,9 +199,10 @@ set novisualbell
 "   set tm=500
 
 " TAB setting{
-set expandtab        "replace <TAB> with spaces
+set tabstop=4
 set softtabstop=4
 set shiftwidth=4
+set expandtab        "replace <TAB> with spaces
 
 au FileType Makefile set noexpandtab
 "}                                  
