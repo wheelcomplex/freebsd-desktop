@@ -24,7 +24,7 @@ cat /usr/local/etc/sudoers|tail -n 10
 
 bash
 
-cat <<EOF > /root/.profile
+cat <<'EOF' > /root/.profile
 #!/bin/sh
 # $FreeBSD: head/etc/root/dot.profile 278616 2015-02-12 05:35:00Z cperciva $
 #
@@ -48,7 +48,7 @@ fi
 
 # set PATH so it includes user's private bin if it exists
 if [ -d "$HOME/bin" ] ; then
-    PATH="$HOME/bin:$PATH"
+    echo "$PATH" | grep -q -- "$HOME/bin" || PATH="$HOME/bin:$PATH"
 fi
 EOF
 

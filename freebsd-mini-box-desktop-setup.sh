@@ -441,7 +441,7 @@ glxgears
 # xdm/gnome start on boot
 #
 
-cat <<EOF>> /etc/rc.conf
+cat <<'EOF'>> /etc/rc.conf
 #
 dbus_enable="YES"
 hald_enable="YES"
@@ -559,7 +559,7 @@ test ! -f .ssh/id_rsa && ssh-keygen
 ssh-add && ssh-add -L
 
 
-cat <<EOF > ${HOME}/.profile
+cat <<'EOF'> ${HOME}/.profile
 #!/bin/sh
 # $FreeBSD: head/etc${HOME}dot.profile 278616 2015-02-12 05:35:00Z cperciva $
 #
@@ -582,7 +582,7 @@ fi
 
 # set PATH so it includes user's private bin if it exists
 if [ -d "$HOME/bin" ] ; then
-    PATH="$HOME/bin:$PATH"
+    echo "$PATH" | grep -q -- "$HOME/bin" || PATH="$HOME/bin:$PATH"
 fi
 EOF
 
