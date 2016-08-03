@@ -527,13 +527,38 @@ fcitx-remote > /dev/null 2>&1
 
 if [ $? = "1" ]; then
     echo "Fcitx seems is not running"
-    fcitx
+    fcitx -r -d
 else
     echo "Fcitx is running correctly."
 fi
 EOF
 
 chmod +x /usr/bin/fcitx-autostart
+
+#
+# NOTE:
+#      for xfce4-terminal, right-click mouse and select Input Methods-> fcitx to active chinese input
+#      or pkg remove ibus to make fcitx to default input method
+
+test ! -s ${HOME}/.config/fcitx/config && cat <<'EOF'> ${HOME}/.config/fcitx/config
+[Hotkey]
+TriggerKey=CTRL_ALT_SPACE
+SwitchKey=Disabled
+IMSwitchIncludeInactive=True
+
+[Program]
+DelayStart=5
+ShareStateAmongWindow=PerProgram
+
+[Output]
+
+[Appearance]
+ShowInputWindowWhenFocusIn=True
+ShowVersion=True
+
+EOF
+
+cat ${HOME}/.config/fcitx/config | grep -v '^#'
 
 # https://forums.freebsd.org/threads/xfce-how-to-start-xfce-in-freebsd.4627/
 
