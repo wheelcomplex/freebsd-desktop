@@ -23,7 +23,7 @@
 allxfce4=`pkg search xfce | grep '^xfce' | awk '{print $1}'`
 
 pkgloop install -y ${allxfce4} git-gui xorg xf86-video-scfb xdm slim xlockmore chromium meld firefox pinentry-curses pinentry-tty zh-fcitx zh-fcitx-googlepinyin \
-zh-fcitx-table-extra zh-fcitx-configtool geany virt-viewer openjdk icedtea-web jpeg-turbo gnome3-lite
+zh-fcitx-table-extra zh-fcitx-configtool geany virt-viewer openjdk icedtea-web jpeg-turbo gnome3-lite xv
 
 pkgloop install -y virtualbox-ose libreoffice
 
