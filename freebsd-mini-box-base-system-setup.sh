@@ -16,9 +16,9 @@ pw usermod root -s /bin/sh
 
 # allow wheel group sudo
 
-sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -y bash wget sudo rsync && ln -s /usr/local/bin/bash /bin/bash;\
+sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -f -y bash wget sudo rsync && ln -sf /usr/local/bin/bash /bin/bash;\
 mount -t fdescfs fdesc /dev/fd && echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers && \
-cat /usr/local/etc/sudoers|tail -n 10
+cat /usr/local/etc/sudoers|tail -n 10 && df -h
 
 # cd /usr/ports/shells/bash && make install clean
 
@@ -89,11 +89,6 @@ if [ -z "$debian_chroot" ] && [ -r /etc/debian_chroot ]; then
     debian_chroot=$(cat /etc/debian_chroot)
 fi
 
-# set a fancy prompt (non-color, unless we know we "want" color)
-case "$TERM" in
-    xterm-color) color_prompt=yes;;
-esac
-
 # uncomment for a colored prompt, if the terminal has the capability; turned
 # off by default to not distract the user: the focus in a terminal window
 # should be on the output of commands, not on the prompt
@@ -101,12 +96,12 @@ esac
 
 if [ -n "$force_color_prompt" ]; then
     if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null; then
-	# We have color support; assume it's compliant with Ecma-48
-	# (ISO/IEC-6429). (Lack of such support is extremely rare, and such
-	# a case would tend to support setf rather than setaf.)
-	color_prompt=yes
+    # We have color support; assume it's compliant with Ecma-48
+    # (ISO/IEC-6429). (Lack of such support is extremely rare, and such
+    # a case would tend to support setf rather than setaf.)
+    color_prompt=yes
     else
-	color_prompt=
+    color_prompt=
     fi
 fi
 
@@ -202,7 +197,7 @@ echo " ---"
 #
 EOF
 
-chmod +x /root/.shrc /root/.bashrc /root/.env-all
+chmod +x /root/.bashrc /root/.env-all
 
 #
 # root login with bash
@@ -387,6 +382,7 @@ chmod +x /usr/local/sbin/pkgloop
 # base pkg
 # git included in git-gui
 # xauth for X11 Forward
+
 pkgloop install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar dot2tex unzip xauth && \
 pkgloop install -y bash-completion
 
