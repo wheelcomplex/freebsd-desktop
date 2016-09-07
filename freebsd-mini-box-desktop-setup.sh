@@ -16,7 +16,12 @@
 
 # mini X
 
-pkgloop install -y git-gui chromium meld firefox pinentry-curses pinentry-tty geany virt-viewer openjdk icedtea-web jpeg-turbo xv
+pkgloop install -y git-gui meld  pinentry-curses pinentry-tty geany jpeg-turbo xv
+
+pkgloop install -y virt-viewer chromium firefox openjdk icedtea-web
+
+# for armv6 rpi2
+# pkgloop install -y git-gui meld pinentry-curses pinentry-tty geany jpeg-turbo xv
 
 #
 # https://www.freebsd.org/doc/handbook/x11.html
@@ -509,6 +514,8 @@ echo 'rm -rf /tmp/.vbox-*-ipc' >> /etc/rc.local
 pw groupmod vboxusers -m rhinofly
 pw groupmod operator -m rhinofly
 pw groupmod wheel -m rhinofly
+pw groupmod dialer -m rhinofly
+id rhinofly
 
 # reboot to take effect
 

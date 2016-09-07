@@ -16,7 +16,7 @@ pw usermod root -s /bin/sh
 
 # allow wheel group sudo
 
-sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -f -y bash wget sudo rsync && ln -sf /usr/local/bin/bash /bin/bash;\
+sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -f -y bash wget sudo rsync && ln -f /usr/local/bin/bash /bin/bash;\
 mount -t fdescfs fdesc /dev/fd && echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers && \
 cat /usr/local/etc/sudoers|tail -n 10 && df -h
 
@@ -204,6 +204,8 @@ chmod +x /root/.bashrc /root/.env-all
 #
 
 test -x /usr/local/bin/bash && pw usermod root -s /usr/local/bin/bash || pw usermod root -s /bin/sh
+
+su -
 
 #
 # rhinofly login with bash
@@ -396,10 +398,10 @@ pkgloop install -y bash-completion
 mkdir -p /usr/local/etc/bash_completion.d
 
 # git completion
-wget https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash -O /usr/local/etc/bash_completion.d/git-completion.bash
+wget --no-check-certificate https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash -O /usr/local/etc/bash_completion.d/git-completion.bash
 
 # zfs completion
-wget https://raw.githubusercontent.com/zfsonlinux/zfs/master/contrib/bash_completion.d/zfs -O /usr/local/etc/bash_completion.d/zfs
+wget --no-check-certificate https://raw.githubusercontent.com/zfsonlinux/zfs/master/contrib/bash_completion.d/zfs -O /usr/local/etc/bash_completion.d/zfs
 
 # devel/cpuflags
 
@@ -1202,3 +1204,9 @@ rm -rf /usr/src && mkdir -p /usr/src/ && git clone https://github.com/freebsd/fr
 # 
 # svn checkout https://svn.FreeBSD.org/base/head /usr/src && svn update /usr/src
 # 
+
+# ssh remote forward
+# https://help.ubuntu.com/community/SSH/OpenSSH/PortForwarding
+# need GatewayPorts yes in /etc/ssh/sshd_config for 0.0.0.0:8822
+# ssh -f -N -n -T -R 0.0.0.0:8822:10.236.150.26:22 public-ssh-server
+# ssh -f -N -n -T -R 0.0.0.0:9922:10.236.150.21:22 public-ssh-server
