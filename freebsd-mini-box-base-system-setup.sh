@@ -458,7 +458,8 @@ cat <<EOF>> /boot/loader.conf
 # wait for storage, in ms
 kern.cam.boot_delay=10000
 kern.cam.scsi_delay=10000
-vfs.mountroot.timeout=15000
+# vfs.mountroot.timeout in second
+vfs.mountroot.timeout=15
 #
 #
 # keep system stable
@@ -484,7 +485,8 @@ cat <<EOF>> /boot/loader.conf
 # wait for storage, in ms
 kern.cam.boot_delay=10000
 kern.cam.scsi_delay=10000
-vfs.mountroot.timeout=15000
+# vfs.mountroot.timeout in second
+vfs.mountroot.timeout=15
 #
 vm.overcommit=2
 #
