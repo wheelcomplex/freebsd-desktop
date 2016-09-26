@@ -16,7 +16,7 @@
 
 # mini X
 
-pkgloop install -y git-gui meld  pinentry-curses pinentry-tty geany jpeg-turbo xv
+pkgloop install -y git-gui meld  pinentry-curses pinentry-tty geany jpeg-turbo xv rdesktop
 
 pkgloop install -y virt-viewer chromium firefox openjdk icedtea-web
 
