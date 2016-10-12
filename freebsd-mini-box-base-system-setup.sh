@@ -1165,6 +1165,15 @@ dhclient wlan0
 #
 EOF
 
+# convert GBK filename to utf-8
+# http://unix.stackexchange.com/questions/290713/how-to-convert-gbk-to-utf-8-in-a-mixed-encoding-directory
+# http://edyfox.codecarver.org/html/linux_gbk2utf8.html
+
+pkg install -y convmv
+
+# convmv -f gbk -t utf8 *
+# convmv -r -f gbk -t utf-8 --notest *
+
 #
 # addon pkgs
 #
