@@ -290,7 +290,7 @@ echo "fast pkg ${act}ing $target ..."
 tmpfile="/tmp/fastpkg.$$.list"
 echo "n" | pkg install $target > $tmpfile 2>&1
 
-list=`cat $tmpfile | grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| grep -v 'Installed packages to be REINSTALLED:'| grep -v "The process will"|grep -v "to be downloaded."| grep -v "Proceed with this action"| grep -v 'ABI changed'| grep -v 'Number of packages to be'|awk -F': ' '{print $1}'| grep -v '^$'|awk '{print $1}'`;
+list=`cat $tmpfile | grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| grep -v 'Installed packages'| grep -v "The process will"|grep -v "to be downloaded."| grep -v "Proceed with this action"| grep -v 'ABI changed'| grep -v 'Number of packages to be'|awk -F': ' '{print $1}'| grep -v '^$'|awk '{print $1}'`;
 dlinfo=`cat $tmpfile |grep "to be downloaded."`
 
 needl=1
