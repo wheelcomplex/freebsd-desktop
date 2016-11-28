@@ -31,10 +31,12 @@ pkgloop install -y virt-viewer chromium firefox openjdk icedtea-web
 
 allxfce4=`pkg search xfce | grep '^xfce' | awk '{print $1}'`
 
-pkgloop install -y ${allxfce4} xorg xf86-video-scfb xdm slim xlockmore zh-fcitx zh-fcitx-googlepinyin \
+# zh-fcitx-googlepinyin
+
+pkgloop install -y ${allxfce4} xorg xf86-video-scfb xdm slim xlockmore zh-fcitx zh-fcitx-cloudpinyin \
 zh-fcitx-table-extra zh-fcitx-configtool gnome3-lite
 
-pkgloop install -y virtualbox-ose libreoffice
+pkgloop install -y virtualbox-ose virtualbox-ose-kmod virtualbox-ose-additions apache-openoffice
 
 # virtualbox-ose-additions virtualbox-ose-kmod
 
@@ -471,8 +473,9 @@ EOF
 #
 # should already exist
 #
-mkdir -p /usr/local/share/xsessions/
-test ! -f /usr/local/share/xsessions/xfce.desktop && cat <<'EOF' > /usr/local/share/xsessions/xfce.desktop
+mkdir -p /usr/local/share/xsessions/backups/
+mv /usr/local/share/xsessions/*.desktop /usr/local/share/xsessions/backups/
+cat <<'EOF' > /usr/local/share/xsessions/xfce.desktop
 [Desktop Entry]
 Version=1.0
 Name=Xfce Session
@@ -516,6 +519,71 @@ pw groupmod operator -m rhinofly
 pw groupmod wheel -m rhinofly
 pw groupmod dialer -m rhinofly
 id rhinofly
+
+
+#
+# remote desktop
+#
+
+sudo pkgloop install -y xrdp-devel
+
+### Message from xrdp-devel-0.7.0.b20130912_3,1:
+### ==============================================================================
+### 
+### XRDP has been installed.
+### 
+### There is an rc.d script, so the service can be enabled by adding this line
+### in /etc/rc.conf:
+### 
+### xrdp_enable="YES"
+### xrdp_sesman_enable="YES" # if you want to run xrdp-sesman on the same machine
+### 
+### Do not forget to edit the configuration files in "/usr/local/etc/xrdp"
+### and the "/usr/local/etc/xrdp/startwm.sh" script.
+### 
+### ==============================================================================
+
+cat <<'EOF' >> /etc/rc.conf
+#
+xrdp_enable="YES"
+xrdp_sesman_enable="YES" # if you want to run xrdp-sesman on the same machine
+EOF
+
+cat <<'EOF' > /usr/local/etc/xrdp/startwm.session
+#!/bin/sh
+# session configure for xrdp startwm
+SESSIONS="startxfce4 startkde gnome-session blackbox fluxbox xterm"
+#
+EOF
+
+chmod +x /usr/local/etc/xrdp/startwm.session
+
+sed -i -e 's#^SESSIONS=#\. /usr/local/etc/xrdp/startwm.session \|\| SESSIONS=#g' /usr/local/etc/xrdp/startwm.sh
+
+cat /usr/local/etc/xrdp/startwm.sh
+
+#
+# remote desktop client side
+#
+
+sudo pkgloop install -y rdesktop
+
+cat <<'EOF' > ~/bin/xremote.sh
+#!/bin/bash
+#
+# note: use ctl+alt+enter to switch between full-screen
+#
+
+REMOTEUSER="rhinofly"
+REMOTEPASSWORD="remotepasswd"
+REMOTEHOST="10.236.12.201"
+disp="1920x1080"
+#rdesktop -k en-us -D -u $REMOTEUSER -p $REMOTEPASSWORD -z -r clipboard:PRIMARYCLIPBOARD -s /usr/bin/xfce4-session -g $disp $REMOTEHOST &
+rdesktop -f -k en-us -D -u $REMOTEUSER -p $REMOTEPASSWORD -z -r clipboard:PRIMARYCLIPBOARD -g $disp $REMOTEHOST &
+
+EOF
+
+chmod +x ~/bin/xremote.sh
 
 # reboot to take effect
 
@@ -819,72 +887,6 @@ echo 'test -x ${HOME}/.git-completion.bash && . ${HOME}/.git-completion.bash' >>
 #
 # done =-========================
 #
-
-#
-# remote desktop
-#
-
-sudo pkgloop install -y xrdp-devel
-
-Message from xrdp-devel-0.7.0.b20130912_3,1:
-==============================================================================
-
-XRDP has been installed.
-
-There is an rc.d script, so the service can be enabled by adding this line
-in /etc/rc.conf:
-
-xrdp_enable="YES"
-xrdp_sesman_enable="YES" # if you want to run xrdp-sesman on the same machine
-
-Do not forget to edit the configuration files in "/usr/local/etc/xrdp"
-and the "/usr/local/etc/xrdp/startwm.sh" script.
-
-==============================================================================
-
-cat <<'EOF' >> /etc/rc.conf
-#
-xrdp_enable="YES"
-xrdp_sesman_enable="YES" # if you want to run xrdp-sesman on the same machine
-EOF
-
-cat <<'EOF' > /usr/local/etc/xrdp/startwm.session
-#!/bin/sh
-# session configure for xrdp startwm
-SESSIONS="startxfce4 startkde gnome-session blackbox fluxbox xterm"
-#
-EOF
-
-chmod +x /usr/local/etc/xrdp/startwm.session
-
-sed -i -e 's#^SESSIONS=#\. /usr/local/etc/xrdp/startwm.session \|\| SESSIONS=#g' /usr/local/etc/xrdp/startwm.sh
-
-cat /usr/local/etc/xrdp/startwm.sh
-
-#
-# remote desktop client side
-#
-
-sudo pkgloop install -y rdesktop
-
-cat <<'EOF' > ~/bin/xremote.sh
-#!/bin/bash
-#
-# note: use ctl+alt+enter to switch between full-screen
-#
-
-REMOTEUSER="rhinofly"
-REMOTEPASSWORD="remotepasswd"
-REMOTEHOST="10.236.12.201"
-disp="1920x1080"
-#rdesktop -k en-us -D -u $REMOTEUSER -p $REMOTEPASSWORD -z -r clipboard:PRIMARYCLIPBOARD -s /usr/bin/xfce4-session -g $disp $REMOTEHOST &
-rdesktop -f -k en-us -D -u $REMOTEUSER -p $REMOTEPASSWORD -z -r clipboard:PRIMARYCLIPBOARD -g $disp $REMOTEHOST &
-
-EOF
-
-chmod +x ~/bin/xremote.sh
-
-
 
 # -----------
 

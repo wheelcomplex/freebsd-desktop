@@ -17,7 +17,7 @@ pw usermod root -s /bin/sh
 # allow wheel group sudo
 
 sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -f -y bash wget sudo rsync && ln -f /usr/local/bin/bash /bin/bash;\
-mount -t fdescfs fdesc /dev/fd && echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers && \
+mount -t fdescfs fdesc /dev/fd && echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers &&\
 cat /usr/local/etc/sudoers|tail -n 10 && df -h
 
 # cd /usr/ports/shells/bash && make install clean
@@ -322,7 +322,7 @@ maxjobs(){
             then
                 statcnt=0
                 echo "`date` waiting for ..."
-                ps axuww| grep 'pkg fetch' | grep -v grep | awk -F'-y ' '{print $2}'
+                ps axuww| grep 'pkg fetch' | grep -v grep | awk -F'-y ' '{print $2}'|uniq
             fi
             sleep 1
         done
@@ -432,12 +432,14 @@ cat /dev/sndstat
 camcontrol devlist
 
 # check for TRIM support
-camcontrol identify /dev/da0
+camcontrol identify /dev/ada0
 
-gpart show da0
+camcontrol identify /dev/ada0 | grep TRIM
+
+gpart show ada0
 
 # check for TRIM support in ufs
-tunefs -p /dev/da0p1
+tunefs -p /dev/ada0p1
 
 # check for TRIM support in zfs
 sysctl -a | grep trim | grep 'zfs'
@@ -479,30 +481,14 @@ kern.vty=vt
 #
 EOF
 
-# OR
-
-cat <<EOF>> /boot/loader.conf
-# wait for storage, in ms
-kern.cam.boot_delay=10000
-kern.cam.scsi_delay=10000
-# vfs.mountroot.timeout in second
-vfs.mountroot.timeout=15
-#
-vm.overcommit=2
-#
-kern.vty=vt
-#
-# more kernel modules listed in kld_list of /etc/rc.conf
-#
-EOF
-
 cat /boot/loader.conf
 
 #
 
 cat <<'EOF' >> /etc/rc.conf
 # kernel modules
-kld_list="geom_uzip if_bridge bridgestp fdescfs linux linprocfs wlan_xauth snd_driver coretemp vboxdrv"
+# if_iwm for intel 3165 wifi
+kld_list="if_iwm geom_uzip if_bridge bridgestp fdescfs linux linprocfs wlan_xauth snd_driver coretemp vboxdrv"
 #
 sshd_enable="YES"
 moused_enable="YES"
@@ -528,12 +514,12 @@ gnome_enable="NO"
 #
 #
 ### http://www.freebsd.org/doc/en_US.ISO8859-1/books/handbook/firewalls-pf.html
-pf_enable="YES"                 # Set to YES to enable packet filter (pf)
-pf_rules="/etc/pf.conf"         # rules definition file for pf
-pf_program="/sbin/pfctl"        # where the pfctl program lives
-pf_flags=""                     # additional flags for pfctl
-pflog_enable="YES"              # Set to YES to enable packet filter logging
-pflog_logfile="/var/log/pflog"  # where pflogd should store the logfile
+###%### pf_enable="YES"                 # Set to YES to enable packet filter (pf)
+###%### pf_rules="/etc/pf.conf"         # rules definition file for pf
+###%### pf_program="/sbin/pfctl"        # where the pfctl program lives
+###%### pf_flags=""                     # additional flags for pfctl
+###%### pflog_enable="YES"              # Set to YES to enable packet filter logging
+###%### pflog_logfile="/var/log/pflog"  # where pflogd should store the logfile
 #
 EOF
 
@@ -548,7 +534,6 @@ EOF
 ## dev.cpu.2.temperature: 59.1C
 ## dev.cpu.1.temperature: 67.1C
 ## dev.cpu.0.temperature: 67.1C
-
 
 # https://www.freebsd.org/cgi/man.cgi?rc.conf(5)
 #     kld_list     (str) A list of kernel    modules    to load    right after the    local
@@ -597,7 +582,7 @@ chmod +x /etc/rc.local
 
 
 #
-# fuck off bridge in /etc/rc.conf
+# fix bridge in /etc/rc.conf
 #
 
 cat <<'EOF' > /sbin/ifaceboot
@@ -799,6 +784,7 @@ EOF
 chmod +x /sbin/ifaceboot
 
 # start on boot
+
 cat <<'EOF' >> /etc/rc.local
 # fix network interface configure in rc.conf
 # wlanmode hostap fpr softap, sta for wifi client
@@ -806,6 +792,9 @@ cat <<'EOF' >> /etc/rc.local
 #    /sbin/ifconfig wlan0 txpower 5
 #
 #    /sbin/ifaceboot bridge0 addm em1 addm em2 addm em3 addm wlan0 inet 172.236.150.43/24
+#
+#
+#    /sbin/ifaceboot bridge0 addm re0 ether 4c:cc:6a:6c:cb:e6 SYNCDHCP
 #
 EOF
 
@@ -923,6 +912,14 @@ EOF
 
 source /etc/profile && locale
 
+# convert GBK filename to utf-8
+# http://unix.stackexchange.com/questions/290713/how-to-convert-gbk-to-utf-8-in-a-mixed-encoding-directory
+# http://edyfox.codecarver.org/html/linux_gbk2utf8.html
+
+pkg install -y convmv
+
+# convmv -f gbk -t utf8 *
+# convmv -r -f gbk -t utf-8 --notest *
 
 #
 # dnsmasq dhcp server(with dns)
@@ -1138,7 +1135,7 @@ fast_reauth=1
 
 # Simple case: WPA-PSK, PSK as an ASCII passphrase, allow all valid ciphers
 network={
-    ssid="tutux-mini-139-wifi"
+    ssid="tutux-136-mini"
     psk="yourpassword"
     scan_ssid=1
     key_mgmt=WPA-PSK
@@ -1164,15 +1161,6 @@ sleep 5
 dhclient wlan0
 #
 EOF
-
-# convert GBK filename to utf-8
-# http://unix.stackexchange.com/questions/290713/how-to-convert-gbk-to-utf-8-in-a-mixed-encoding-directory
-# http://edyfox.codecarver.org/html/linux_gbk2utf8.html
-
-pkg install -y convmv
-
-# convmv -f gbk -t utf8 *
-# convmv -r -f gbk -t utf-8 --notest *
 
 #
 # addon pkgs
