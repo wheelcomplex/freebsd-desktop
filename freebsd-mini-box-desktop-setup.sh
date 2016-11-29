@@ -614,6 +614,10 @@ EOF
 
 chmod +x /usr/bin/fcitx-autostart
 
+# remove ibus
+
+pkg remove -y ibus
+
 #
 # NOTE:
 #      for xfce4-terminal, right-click mouse and select Input Methods-> fcitx to active chinese input
