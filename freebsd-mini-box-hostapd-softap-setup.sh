@@ -26,7 +26,8 @@ cat <<'EOF' >> /etc/rc.local
 #!/bin/sh
 
 #
-# fix network interface configure in rc.conf
+# wlanmode hostap for softap, sta for wifi client
+
 /sbin/ifaceboot wlan0 ath0 wlanmode hostap up
 #
 /sbin/ifconfig wlan0 txpower 5
@@ -110,7 +111,7 @@ service syslogd restart
 
 # load xauth or you will failed
 
-/sbin/kldload wlan_xauth 2>/dev/null
+/sbin/kldload wlan_xauth
 
 hostapd -d /etc/hostapd.conf
 

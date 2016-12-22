@@ -793,7 +793,9 @@ chmod +x /sbin/ifaceboot
 
 cat <<'EOF' >> /etc/rc.local
 # fix network interface configure in rc.conf
-# wlanmode hostap fpr softap, sta for wifi client
+
+# wlanmode hostap for softap, sta for wifi client
+
 #    /sbin/ifaceboot wlan0 ath0 wlanmode sta up
 #    /sbin/ifconfig wlan0 txpower 5
 #
