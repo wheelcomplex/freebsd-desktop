@@ -666,6 +666,9 @@ test ! -f .ssh/id_rsa && ssh-keygen
 
 ssh-add && ssh-add -L
 
+# remove property name="output-name" type="string" value="HDMI1"
+# from ${HOME}/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+# when xfce4-panel disappear
 
 cat <<'EOF'> ${HOME}/.profile
 #!/bin/sh
