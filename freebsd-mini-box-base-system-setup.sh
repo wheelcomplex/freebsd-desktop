@@ -385,8 +385,14 @@ chmod +x /usr/local/sbin/pkgloop
 # git included in git-gui
 # xauth for X11 Forward
 
-pkgloop install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar dot2tex unzip xauth && \
+pkgloop install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar dot2tex unzip xauth fusefs-ntfs && \
 pkgloop install -y bash-completion
+
+ln -s `which ntfs-3g` /usr/sbin/mount_ntfs-3g
+
+# man ntfs-3g
+# /usr/sbin/mount_ntfs-3g -o ro,uid=1000,gid=1000 /dev/da0s1 /mnt/msdos/
+# /dev/ad4s1		/wxp		ntfs-3g	rw,uid=0,gid=0,late		0	0
 
 #
 # fix: pkg: cached package xxxx: size mismatch, cannot continue
