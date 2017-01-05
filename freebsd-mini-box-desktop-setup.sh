@@ -520,6 +520,27 @@ pw groupmod wheel -m rhinofly
 pw groupmod dialer -m rhinofly
 id rhinofly
 
+# switch sound output device/port
+# https://forums.freebsd.org/threads/47852/
+
+# use xfce4-mixer to active stereo mode
+cat /dev/sndstat
+# Installed devices:
+# pcm0: <Intel Haswell (HDMI/DP 8ch)> (play)
+# pcm1: <Realtek (0x0668) (Internal Analog)> (play/rec)
+# pcm2: <Realtek (0x0668) (Left Analog)> (play/rec) default
+# No devices installed from userspace.
+
+# FreeBSD Audio Driver (64bit 2009061500/amd64)
+# Installed devices:
+# pcm0: <Intel Haswell (HDMI/DP 8ch)> on hdaa0  (1p:1v/0r:0v)
+# pcm1: <Realtek (0x0668) (Internal Analog)> on hdaa1  (1p:3v/1r:1v)
+# pcm2: <Realtek (0x0668) (Left Analog)> on hdaa1  (1p:2v/2r:1v) default
+# No devices installed from userspace.
+# 
+
+# 1, default speaker, 2, Analog
+sudo sysctl -w hw.snd.default_unit=3
 
 #
 # remote desktop
