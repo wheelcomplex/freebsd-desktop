@@ -11,6 +11,8 @@ sed -i -e '/exit 0/d' /etc/rc.local
 sed -i -e 's/sh -e/sh/' /etc/rc.local
 #
 
+apt install -y conntrack
+
 cat <<'EOF' > /usr/sbin/ipmgr.sh
 #!/bin/bash
 #
@@ -139,6 +141,8 @@ test -n "$GWTIME" && echo -e "\nProbe got gateway device $gw // $DEV after $GWTI
 
 test -n "$SHOW" && showstat on && exit 0
 
+/usr/sbin/conntrack -F >/dev/null
+
 for aaa in $ADDLIST
 do
   if [ $STOPFW -ne 0 ]
@@ -185,10 +189,13 @@ if [ -n "$gw" ]
         modprobe nf_nat_proto_gre
         modprobe nf_conntrack_proto_gre
         modprobe nf_conntrack_ftp
-        # 10 days
-        echo '864000' > /proc/sys/net/netfilter/nf_conntrack_generic_timeout
-        # 100 days
-        echo '8640000' > /proc/sys/net/netfilter/nf_conntrack_tcp_timeout_established
+        #
+        echo '7875' > /proc/sys/net/netfilter/nf_conntrack_generic_timeout
+        #
+        echo '7200' > /proc/sys/net/netfilter/nf_conntrack_udp_timeout
+        #
+        # https://dev.openwrt.org/ticket/12976
+        echo '14400' > /proc/sys/net/netfilter/nf_conntrack_tcp_timeout_established
     fi
 else
   test -z "$IPMGRQUIET" && route -n 
