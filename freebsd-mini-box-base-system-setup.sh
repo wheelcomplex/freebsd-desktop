@@ -1121,6 +1121,9 @@ EOF
 ## wpa2-psk wifi client
 # for open wifi: ifconfig wlan0 ssid xxxx && dhclient wlan0
 
+# to list ssid
+ifconfig wlan0 scan
+
 pkgloop install -y wpa_supplicant
 
 cp /usr/local/etc/wpa_supplicant.conf /usr/local/etc/wpa_supplicant.conf.dist
@@ -1153,6 +1156,35 @@ network={
     priority=5
 }
 EOF
+
+
+cat <<'EOF' >/usr/local/etc/wpa_supplicant.conf
+#####wpa_supplicant configuration file ###############################
+#
+update_config=0
+
+#
+ctrl_interface=/var/run/wpa_supplicant
+
+eapol_version=1
+
+ap_scan=1
+
+fast_reauth=1
+
+# Simple case: WPA-PSK, PSK as an ASCII passphrase, allow all valid ciphers
+network={
+    ssid="TMWaterview"
+    psk="yourpassword"
+    scan_ssid=1
+    key_mgmt=WPA-PSK
+    proto=RSN
+    pairwise=CCMP TKIP
+    group=CCMP TKIP
+    priority=5
+}
+EOF
+
 
 #
 # debug

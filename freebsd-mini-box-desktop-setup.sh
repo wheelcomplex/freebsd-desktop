@@ -540,7 +540,7 @@ cat /dev/sndstat
 # 
 
 # 1, default speaker, 2, Analog
-sudo sysctl -w hw.snd.default_unit=3
+sudo sysctl -w hw.snd.default_unit=2
 
 #
 # remote desktop
@@ -611,6 +611,11 @@ chmod +x ~/bin/xremote.sh
 #
 # fcitx
 #
+
+pkg install -y zh-fcitx zh-fcitx-cloudpinyin \
+zh-fcitx-table-extra zh-fcitx-configtool fcitx-qt5 fcitx-m17n
+
+# fcitx-qt5 for firefox?
 
 #
 # configure fcitx input
