@@ -48,6 +48,14 @@ getgwdev(){
   done
 }
 
+showstat(){
+    local arg="$1"
+    test -z "$IPMGRQUIET" -o -n "$arg" && test -n "$DEV" && ip addr list dev $DEV
+    test -z "$IPMGRQUIET" -o -n "$arg" && route -n
+    test -z "$IPMGRQUIET" -o -n "$arg" && echo " --- "
+    test -z "$IPMGRQUIET" -o -n "$arg" && iptables -L POSTROUTING -nv -t nat && iptables -L FORWARD -n -v
+}
+
 if [ `id -u` -ne 0 ]
 then
     sudo $0 $@
@@ -57,14 +65,14 @@ fi
 debug=0
 if [ "$1" = "-D" ]
 then
-shift
-set -x
+    shift
+    set -x
 fi
 
 STOPFW=0
 test "$1" = 'stop' && STOPFW=1 && shift
 
-MSSVAL=1460
+MSSVAL=65535
 if [ "$1" = "-m" ]
 then
     expr 1 + $2 >/dev/null 2>&1
@@ -78,13 +86,17 @@ then
         echo "Invalid TCPMSS $2, ignored"
     fi
 fi
+
+test "$1" = 'show' && SHOW="on" && shift
+
 echo -e "\n - TCPMSS $MSSVAL\n -\n"
 
 test -n "$1" && DEV="$1"
 test -z "$DEV" && DEV="$(getgwdev)"
 GWTIME=''
-if [ -n "IPMGRWAITGW" -a -z "$DEV" ]
+if [ -n "$IPMGRWAITGW" -a -z "$DEV" -a $STOPFW -eq 0 -a -z "$SHOW" ]
 then
+    echo "waiting for gateway(30 seconds) ..."
     for aaa in `seq 1 30`
     do
         DEV="$(getgwdev)"
@@ -96,6 +108,12 @@ then
         sleep 1
     done
 fi
+
+if [ -z "$DEV" -a -n "$SHOW" ]
+  then
+  DEV='lo'
+fi
+
 if [ -z "$DEV" ]
   then
   test -z "$IPMGRQUIET" && route -n
@@ -104,6 +122,12 @@ if [ -z "$DEV" ]
 fi
 
 gw="$(getgwaddr $DEV)"
+
+if [ -z "$gw" -a -n "$SHOW" ]
+  then
+  gw='127.0.0.1'
+fi
+
 if [ -z "$gw" ]
   then
   test -z "$IPMGRQUIET" && route -n 
@@ -112,6 +136,8 @@ if [ -z "$gw" ]
 fi
 
 test -n "$GWTIME" && echo -e "\nProbe got gateway device $gw // $DEV after $GWTIME sceonds.\n"
+
+test -n "$SHOW" && showstat on && exit 0
 
 for aaa in $ADDLIST
 do
@@ -139,12 +165,19 @@ if [ -n "$gw" ]
   then
     for aaa in 1 2 3 4 5 6 7 8
     do
-      /sbin/iptables -D POSTROUTING -t nat -o $gwdev -j MASQUERADE 2>/dev/null
-      /sbin/iptables -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss $MSSVAL 2>/dev/null
+       mssline=`iptables-save | grep 'TCPMSS' | sed -e 's#^-A #-D #g'`
+       test -n "$mssline" && /sbin/iptables $mssline
+       masqline=`iptables-save | grep 'MASQUERADE' | sed -e 's#^-A #-D #g'`
+       test -n "$masqline" && /sbin/iptables -t nat $masqline
     done
     if [ $STOPFW -eq 0 ]
     then
-        test $MSSVAL -ne 0 && /sbin/iptables -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss $MSSVAL
+        if [ $MSSVAL -ne 0 ]
+        then
+            test $MSSVAL -ne 65535 && /sbin/iptables -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss $MSSVAL
+        else
+            /sbin/iptables -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+        fi
         /sbin/iptables -I POSTROUTING -t nat -o $gwdev -j MASQUERADE
         sysctl -q -w net.ipv4.ip_forward=1
         modprobe nf_nat_pptp
@@ -162,10 +195,7 @@ else
   echo -e "\nERROR: probe default gateway from ANY failed.\n"
   exit 1
 fi
-test -z "$IPMGRQUIET" && ip addr list dev $DEV
-test -z "$IPMGRQUIET" && route -n
-test -z "$IPMGRQUIET" && echo " --- "
-test -z "$IPMGRQUIET" && iptables -L POSTROUTING -nv -t nat && iptables -L FORWARD -n -v
+showstat
 if [ $STOPFW -ne 0 ]
 then
     echo -e "\nNETFILTER MASQUERADE deactivated on $gwdev\n"
