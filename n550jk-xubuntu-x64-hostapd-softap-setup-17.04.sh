@@ -24,15 +24,26 @@ LOCALNETS='10.0.0.0/8 172.16.0.0/12 192.168.0.0/24'
 ADDLIST=""
 DEV=""
 
-dlog(){
-    logger --stderr -p user.notice -t "$0[monitor:$$]" -- "$@"
-}
+export MONPIDFILE="/var/run/ipmgr.monitor.pid"
 
 plog(){
     local line=''
     while read line
     do
-        dlog "$line"
+        if [ -n "$DUPLOG" ]
+        then
+            echo "$line"
+        else
+            logger --stderr -p user.notice -t "$0[monitor:$$]" -- "$line"
+        fi
+    done
+}
+
+mlog(){
+    local line=''
+    while read line
+    do
+        logger --stderr -p user.notice -t "$0[monitor:$$]" -- "$line"
     done
 }
 
@@ -70,6 +81,21 @@ showstat(){
     test -z "$IPMGRQUIET" -o -n "$arg" && iptables -L POSTROUTING -nv -t nat && iptables -L FORWARD -n -v
 }
 
+stopmon(){
+    local oldpids=`cat $MONPIDFILE 2>/dev/null`
+    local onepid=''
+    for onepid in $oldpids
+    do
+        #test $onepid -ge $monpid && echo "skipped: $onepid" && continue
+        kill $onepid 2>/dev/null
+        if [ $? -eq 0 ]
+        then
+            echo "WARNING: old monitor $onepid killed"
+        fi
+        kill -9 $onepid 2>/dev/null
+    done
+}
+
 gwmonitor(){
     if [ -z "$DEV" ]
     then
@@ -83,25 +109,22 @@ gwmonitor(){
     fi
     local delay=5
     local loss=0
-    local monpid=$$
-    local oldpids=`ps axuww|grep "/usr/sbin/ipmgr.sh monitor" | grep -v grep | awk '{print $2}'`
-    ps axuww|grep "/usr/sbin/ipmgr.sh monitor" | grep -v grep
-    echo "monpid: $monpid"
-    echo "oldpids: $oldpids"
-    for onepid in $oldpids
-    do
-        test $onepid -ge $monpid && echo "skipped: $onepid" && continue
-        kill $onepid 2>/dev/null
-        if [ $? -eq 0 ]
-        then
-            echo "WARNING: old monitor $onepid killed"
-        fi
-        kill -9 $onepid 2>/dev/null
-    done
-    echo "monitor $monpid for $GWIP running ..."
+    stopmon
+    echo "`ps axuww|grep "/usr/sbin/ipmgr.sh monitor" | grep -v grep | awk '{print $2}'`" > $MONPIDFILE 2>/dev/null
+    if [ $? -ne 0 ]
+    then
+        echo "ERROR: write pidfile $MONPIDFILE failed, monitor exited."
+        exit 1
+    fi
+    echo "monitor $$ for $DEV($GWIP) running ..."
     while [ : ]
     do
         loss=`ping -c 3 -w 3 $GWIP 2>&1 | grep 'packet loss' | tr ',%' ' '|awk '{print $6}'`
+        if [ -z "$loss" ]
+        then
+            loss=1024
+            echo "ping failed"
+        fi
         if [ $loss -ge 10 ]
         then
             echo "ERROR: ${loss}% packet loss(> 10%), try to restart NIC $DEV ..."
@@ -122,12 +145,29 @@ then
     exit $?
 fi
 
+if [ "$1" = 'monitor' ]
+then
+    DOMON='monitor'
+    PLOGGING='yes'
+    DUPLOG='NO'
+fi
+
+if [ "$PHASE" = "post-up"  -o "$PHASE" = "pre-down" ]
+then
+    PLOGGING='yes'
+    DUPLOG='NO'
+fi
+
 if [ -z "$PLOGGING" ]
 then
     export PLOGGING='yes'
     $0 $@ 2>&1 | plog
     exit $?
 fi
+
+export DUPLOG
+export PLOGGING
+export PHASE
 
 debug=0
 if [ "$1" = "-D" ]
@@ -138,6 +178,7 @@ fi
 
 STOPFW=0
 test "$1" = 'stop' && STOPFW=1 && shift
+test "$1" = 'start' && STOPFW=0 && shift
 
 MSSVAL=65535
 if [ "$1" = "-m" ]
@@ -155,8 +196,6 @@ then
 fi
 
 test "$1" = 'show' && SHOW="on" && shift
-
-echo "- TCPMSS $MSSVAL"
 
 test -n "$1" -a "$1" != 'monitor' && DEV="$1"
 test -z "$DEV" && DEV="$(getgwdev)"
@@ -207,7 +246,7 @@ test -n "$GWTIME" && echo "Probe got gateway device $GWIP // $DEV after $GWTIME 
 test -n "$SHOW" && showstat on && exit 0
 
 #
-if [ "$1" = 'monitor' ]
+if [ "$DOMON" = 'monitor' -a -z "$PHASE" ]
 then
     if [ -z "$RUNMON" ]
     then
@@ -215,8 +254,15 @@ then
         nohup $0 monitor </dev/zero >> /var/log/ipmgr.log 2>&1 &
         exit $?
     fi
-    gwmonitor 2>&1 | plog
+    gwmonitor 2>&1 | mlog
     exit $?
+fi
+
+echo "- TCPMSS $MSSVAL"
+
+if [ $STOPFW -ne 0 -a -z "$PHASE" ]
+then
+    stopmon
 fi
 
 /usr/sbin/conntrack -F >/dev/null
@@ -292,7 +338,7 @@ EOF
 
 chmod +x /usr/sbin/ipmgr.sh
 
-/usr/sbin/ipmgr.sh
+/usr/sbin/ipmgr.sh monitor
 
 echo 'IPMGRWAITGW=yes IPMGRQUIET=yes /usr/sbin/ipmgr.sh' >> /etc/rc.local
 
