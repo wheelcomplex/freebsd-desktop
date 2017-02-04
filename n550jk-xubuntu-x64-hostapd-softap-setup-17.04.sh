@@ -24,6 +24,18 @@ LOCALNETS='10.0.0.0/8 172.16.0.0/12 192.168.0.0/24'
 ADDLIST=""
 DEV=""
 
+dlog(){
+    logger --stderr -p user.notice -t "$0[monitor:$$]" -- "$@"
+}
+
+plog(){
+    local line=''
+    while read line
+    do
+        dlog "$line"
+    done
+}
+
 getgwaddr(){
   local routedev="$1"
   test -z "$routedev" && routedev='.'
@@ -58,9 +70,62 @@ showstat(){
     test -z "$IPMGRQUIET" -o -n "$arg" && iptables -L POSTROUTING -nv -t nat && iptables -L FORWARD -n -v
 }
 
+gwmonitor(){
+    if [ -z "$DEV" ]
+    then
+        echo "ERROR: DEV not defined."
+        exit 1
+    fi
+    if [ -z "$GWIP" ]
+    then
+        echo "ERROR: GWIP not defined."
+        exit 1
+    fi
+    local delay=5
+    local loss=0
+    local monpid=$$
+    local oldpids=`ps axuww|grep "/usr/sbin/ipmgr.sh monitor" | grep -v grep | awk '{print $2}'`
+    ps axuww|grep "/usr/sbin/ipmgr.sh monitor" | grep -v grep
+    echo "monpid: $monpid"
+    echo "oldpids: $oldpids"
+    for onepid in $oldpids
+    do
+        test $onepid -ge $monpid && echo "skipped: $onepid" && continue
+        kill $onepid 2>/dev/null
+        if [ $? -eq 0 ]
+        then
+            echo "WARNING: old monitor $onepid killed"
+        fi
+        kill -9 $onepid 2>/dev/null
+    done
+    echo "monitor $monpid for $GWIP running ..."
+    while [ : ]
+    do
+        loss=`ping -c 3 -w 3 $GWIP 2>&1 | grep 'packet loss' | tr ',%' ' '|awk '{print $6}'`
+        if [ $loss -ge 10 ]
+        then
+            echo "ERROR: ${loss}% packet loss(> 10%), try to restart NIC $DEV ..."
+            ifdown $DEV;ifdown $DEV;ifdown $DEV;
+            ifup $DEV
+            sleep $delay
+            let delay=$delay+5
+        else
+            test $delay -gt 5 && echo "restart NIC $DEV OK"
+            delay=5
+        fi
+    done
+}
+
 if [ `id -u` -ne 0 ]
 then
     sudo $0 $@
+    exit $?
+fi
+
+if [ -z "$PLOGGING" ]
+then
+    export PLOGGING='yes'
+    $0 $@ 2>&1 | plog
     exit $?
 fi
 
@@ -91,9 +156,9 @@ fi
 
 test "$1" = 'show' && SHOW="on" && shift
 
-echo -e "\n - TCPMSS $MSSVAL\n -\n"
+echo "- TCPMSS $MSSVAL"
 
-test -n "$1" && DEV="$1"
+test -n "$1" -a "$1" != 'monitor' && DEV="$1"
 test -z "$DEV" && DEV="$(getgwdev)"
 GWTIME=''
 if [ -n "$IPMGRWAITGW" -a -z "$DEV" -a $STOPFW -eq 0 -a -z "$SHOW" ]
@@ -119,27 +184,40 @@ fi
 if [ -z "$DEV" ]
   then
   test -z "$IPMGRQUIET" && route -n
-  echo -e "\nERROR: probe default gateway device failed.\n"
+  echo "ERROR: probe default gateway device failed."
   exit 1
 fi
 
-gw="$(getgwaddr $DEV)"
+GWIP="$(getgwaddr $DEV)"
 
-if [ -z "$gw" -a -n "$SHOW" ]
+if [ -z "$GWIP" -a -n "$SHOW" ]
   then
   gw='127.0.0.1'
 fi
 
-if [ -z "$gw" ]
+if [ -z "$GWIP" ]
   then
   test -z "$IPMGRQUIET" && route -n 
-  echo -e "\nERROR: probe default gateway from $DEV failed.\n"
+  echo "ERROR: probe default gateway from $DEV failed."
   exit 1
 fi
 
-test -n "$GWTIME" && echo -e "\nProbe got gateway device $gw // $DEV after $GWTIME sceonds.\n"
+test -n "$GWTIME" && echo "Probe got gateway device $GWIP // $DEV after $GWTIME sceonds."
 
 test -n "$SHOW" && showstat on && exit 0
+
+#
+if [ "$1" = 'monitor' ]
+then
+    if [ -z "$RUNMON" ]
+    then
+        export RUNMON='yes'
+        nohup $0 monitor </dev/zero >> /var/log/ipmgr.log 2>&1 &
+        exit $?
+    fi
+    gwmonitor 2>&1 | plog
+    exit $?
+fi
 
 /usr/sbin/conntrack -F >/dev/null
 
@@ -158,14 +236,14 @@ for aaa in $LOCALNETS
 do 
   if [ $STOPFW -ne 0 ]
   then
-      route delete -net $aaa gw $gw 2>/dev/null
+      route delete -net $aaa gw $GWIP 2>/dev/null
   else
       # add no existed net
-      ip route list | grep -q "^$aaa " || route add -net $aaa gw $gw
+      ip route list | grep -q "^$aaa " || route add -net $aaa gw $GWIP
   fi
 done
 gwdev="$(getgwdev)"
-if [ -n "$gw" ]
+if [ -n "$GWIP" ]
   then
     for aaa in 1 2 3 4 5 6 7 8
     do
@@ -198,16 +276,16 @@ if [ -n "$gw" ]
         echo '14400' > /proc/sys/net/netfilter/nf_conntrack_tcp_timeout_established
     fi
 else
-  test -z "$IPMGRQUIET" && route -n 
-  echo -e "\nERROR: probe default gateway from ANY failed.\n"
+  test -z "$IPMGRQUIET" && route -n
+  echo "ERROR: probe default gateway from ANY failed."
   exit 1
 fi
 showstat
 if [ $STOPFW -ne 0 ]
 then
-    echo -e "\nNETFILTER MASQUERADE deactivated on $gwdev\n"
+    echo "NETFILTER MASQUERADE deactivated on $gwdev"
 else
-    echo -e "\nNETFILTER MASQUERADE activated on $gwdev\n"
+    echo "NETFILTER MASQUERADE activated on $gwdev"
 fi
 #
 EOF
