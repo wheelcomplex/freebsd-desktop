@@ -73,6 +73,8 @@ showstat(){
     test -z "$IPMGRQUIET" -o -n "$arg" && echo " --- "
     test -z "$IPMGRQUIET" -o -n "$arg" && iptables -L POSTROUTING -nv -t nat && iptables -L FORWARD -n -v
     test -z "$IPMGRQUIET" -o -n "$arg" && ps axuww|grep "/usr/sbin/ipmgr.sh monitor daemon" | grep -v grep
+    test -z "$IPMGRQUIET" -o -n "$arg" && ps axuww| grep "wpa_supplicant.${DEV}"|grep -v grep
+    test -z "$IPMGRQUIET" -o -n "$arg" && ps axuww| grep "dhclient.${DEV}"|grep -v grep
     return 0
 }
 
@@ -252,6 +254,8 @@ then
     do 
           test -n "$GWIP" && route delete -net $aaa gw $GWIP 2>/dev/null
     done
+    kill `ps axuww| grep "wpa_supplicant.${DEV}" | grep -v grep| awk '{print $2}'` 2>/dev/null
+    kill `ps axuww| grep "dhclient.${DEV}" | grep -v grep| awk '{print $2}'` 2>/dev/null
     showstat
     echo "NETFILTER MASQUERADE deactivated on $DEV"
     exit 0
