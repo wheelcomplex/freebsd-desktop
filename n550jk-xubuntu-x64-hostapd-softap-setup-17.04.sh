@@ -26,6 +26,12 @@ LOCALNETS='10.0.0.0/8 172.16.0.0/12 192.168.0.0/24'
 ADDLIST=""
 DEV=""
 
+# count
+PINGCOUNT=10
+
+# %
+PINGLOSS=20
+
 mlog(){
     local line=''
     while read line
@@ -125,15 +131,15 @@ gwmonitor(){
             test $delay -ge 30 && delay=30
             continue
         fi
-        loss=`ping -c 3 -w 3 $GWIP 2>&1 | grep 'packet loss' | tr ',%' ' '|awk '{print $6}'`
+        loss=`ping -c $PINGCOUNT -w $PINGCOUNT $GWIP 2>&1 | grep 'packet loss' | tr ',%' ' '|awk '{print $6}'`
         if [ -z "$loss" ]
         then
             loss=1024
             echo "ping failed"
         fi
-        if [ $loss -ge 10 ]
+        if [ $loss -gt $PINGLOSS ]
         then
-            echo "ERROR: ${loss}% packet loss(> 10%), try to restart NIC $DEV ..."
+            echo "ERROR: ${loss}% packet loss(> ${PINGLOSS}%), try to restart NIC $DEV ..."
             ifdown $DEV;ifdown $DEV 2>/dev/null;ifdown $DEV 2>/dev/null;
             ifup $DEV
             sleep $delay
