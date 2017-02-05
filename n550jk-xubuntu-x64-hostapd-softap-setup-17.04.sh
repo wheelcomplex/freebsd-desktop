@@ -13,6 +13,8 @@ sed -i -e 's/sh -e/sh/' /etc/rc.local
 
 apt install -y conntrack
 
+#
+
 cat <<'EOF' > /usr/sbin/ipmgr.sh
 #!/bin/bash
 #
@@ -23,21 +25,6 @@ LOCALNETS='10.0.0.0/8 172.16.0.0/12 192.168.0.0/24'
 # ADDLIST="10.236.13.1/24 198.20.13.1/24 198.19.8.1/24"
 ADDLIST=""
 DEV=""
-
-export MONPIDFILE="/var/run/ipmgr.monitor.pid"
-
-plog(){
-    local line=''
-    while read line
-    do
-        if [ -n "$DUPLOG" ]
-        then
-            echo "$line"
-        else
-            logger --stderr -p user.notice -t "$0[monitor:$$]" -- "$line"
-        fi
-    done
-}
 
 mlog(){
     local line=''
@@ -79,10 +66,12 @@ showstat(){
     test -z "$IPMGRQUIET" -o -n "$arg" && route -n
     test -z "$IPMGRQUIET" -o -n "$arg" && echo " --- "
     test -z "$IPMGRQUIET" -o -n "$arg" && iptables -L POSTROUTING -nv -t nat && iptables -L FORWARD -n -v
+    test -z "$IPMGRQUIET" -o -n "$arg" && ps axuww|grep "/usr/sbin/ipmgr.sh monitor daemon" | grep -v grep
+    return 0
 }
 
 stopmon(){
-    local oldpids=`cat $MONPIDFILE 2>/dev/null`
+    local oldpids="`ps axuww|grep "$0" | grep 'monitor' | grep 'daemon' | grep -v grep | awk '{print $2}'`"
     local onepid=''
     for onepid in $oldpids
     do
@@ -90,35 +79,52 @@ stopmon(){
         kill $onepid 2>/dev/null
         if [ $? -eq 0 ]
         then
-            echo "WARNING: old monitor $onepid killed"
+            echo "WARNING: pre-monitor $onepid killed"
         fi
         kill -9 $onepid 2>/dev/null
     done
 }
 
 gwmonitor(){
-    if [ -z "$DEV" ]
-    then
-        echo "ERROR: DEV not defined."
-        exit 1
-    fi
-    if [ -z "$GWIP" ]
-    then
-        echo "ERROR: GWIP not defined."
-        exit 1
-    fi
     local delay=5
     local loss=0
-    stopmon
-    echo "`ps axuww|grep "/usr/sbin/ipmgr.sh monitor" | grep -v grep | awk '{print $2}'`" > $MONPIDFILE 2>/dev/null
-    if [ $? -ne 0 ]
-    then
-        echo "ERROR: write pidfile $MONPIDFILE failed, monitor exited."
-        exit 1
-    fi
-    echo "monitor $$ for $DEV($GWIP) running ..."
+    local predev="$1"
+    local DEV="$1"
+    local GWIP=""
+    echo "monitor $$ running for $DEV ..."
     while [ : ]
     do
+        DEV="$(getgwdev)"
+        if [ -z "$DEV" ]
+        then
+            echo "waiting for gateway up ..."
+            sleep $delay
+            if [ $delay -ge 15 -o $delay -eq 5 ]
+            then
+                echo "try to restart NIC $predev ..."
+                ifdown $predev;ifdown $predev 2>/dev/null;ifdown $predev 2>/dev/null;
+                ifup $predev
+            fi
+            let delay=$delay+5
+            test $delay -ge 30 && delay=30
+            continue
+        fi
+        predev="$DEV"
+        GWIP="$(getgwaddr $DEV)"
+        if [ -z "$GWIP" ]
+        then
+            echo "ERROR: probe gateway IP failed."
+            sleep $delay
+            if [ $delay -ge 15 -o $delay -eq 5 ]
+            then
+                echo "try to restart NIC $DEV ..."
+                ifdown $DEV;ifdown $DEV 2>/dev/null;ifdown $DEV 2>/dev/null;
+                ifup $DEV
+            fi
+            let delay=$delay+5
+            test $delay -ge 30 && delay=30
+            continue
+        fi
         loss=`ping -c 3 -w 3 $GWIP 2>&1 | grep 'packet loss' | tr ',%' ' '|awk '{print $6}'`
         if [ -z "$loss" ]
         then
@@ -128,7 +134,7 @@ gwmonitor(){
         if [ $loss -ge 10 ]
         then
             echo "ERROR: ${loss}% packet loss(> 10%), try to restart NIC $DEV ..."
-            ifdown $DEV;ifdown $DEV;ifdown $DEV;
+            ifdown $DEV;ifdown $DEV 2>/dev/null;ifdown $DEV 2>/dev/null;
             ifup $DEV
             sleep $delay
             let delay=$delay+5
@@ -145,30 +151,6 @@ then
     exit $?
 fi
 
-if [ "$1" = 'monitor' ]
-then
-    DOMON='monitor'
-    PLOGGING='yes'
-    DUPLOG='NO'
-fi
-
-if [ "$PHASE" = "post-up"  -o "$PHASE" = "pre-down" ]
-then
-    PLOGGING='yes'
-    DUPLOG='NO'
-fi
-
-if [ -z "$PLOGGING" ]
-then
-    export PLOGGING='yes'
-    $0 $@ 2>&1 | plog
-    exit $?
-fi
-
-export DUPLOG
-export PLOGGING
-export PHASE
-
 debug=0
 if [ "$1" = "-D" ]
 then
@@ -176,9 +158,48 @@ then
     set -x
 fi
 
-STOPFW=0
-test "$1" = 'stop' && STOPFW=1 && shift
-test "$1" = 'start' && STOPFW=0 && shift
+if [ "$1" = '-I' ]
+then
+    DEV="$2"
+    shift
+    shift
+fi
+
+test -z "$DEV" -a -n "$IFACE" && DEV="$IFACE"
+test -z "$DEV" && DEV="$(getgwdev)"
+GWIP="$(getgwaddr $DEV)"
+
+export DEV
+export GWIP
+#
+if [ "$1" = 'monitor' ]
+then
+    if [ -z "$RUNMON" -a "$2" != "daemon" ]
+    then
+        export RUNMON='yes'
+        stopmon 2>&1 | mlog >> /var/log/ipmgr.log 2>&1
+        echo "LAUNCH monitor deamon ..." | mlog >> /var/log/ipmgr.log 2>&1
+        if [ -n "$DEV" ]
+        then
+            nohup $0 -I $DEV monitor daemon </dev/zero >> /var/log/ipmgr.log 2>&1 &
+        else
+            nohup $0 monitor daemon </dev/zero >> /var/log/ipmgr.log 2>&1 &
+        fi
+        exit $?
+    fi
+    gwmonitor $DEV 2>&1 | mlog
+    exit $?
+fi
+
+# start/stop/show
+export PHASE
+export IFACE
+if [ -z "$PLOGGING" -a -z "$PHASE" -a -z "$IFACE" ]
+then
+    export PLOGGING='yes'
+    $0 $@ 2>&1 | mlog
+    exit $?
+fi
 
 MSSVAL=65535
 if [ "$1" = "-m" ]
@@ -195,12 +216,43 @@ then
     fi
 fi
 
-test "$1" = 'show' && SHOW="on" && shift
+test "$1" = 'start'
 
-test -n "$1" -a "$1" != 'monitor' && DEV="$1"
-test -z "$DEV" && DEV="$(getgwdev)"
+test "$1" = 'show' && showstat on && exit 0
+
+# PHASE=post-up
+# IFACE=wlx14cf92141210
+
+
+if [ "$1" = 'stop' -o "$1" = 'flush' ]
+then
+    test "$1" = 'stop' && stopmon
+    for aaa in 1 2 3 4 5 6 7 8
+    do
+       iptables-save | grep 'TCPMSS' | sed -e 's#^-A #-D #g' | while read mssline
+       do
+           test -n "$mssline" && /sbin/iptables $mssline
+       done
+       iptables-save | grep 'MASQUERADE' | sed -e 's#^-A #-D #g' | while read mssline
+       do
+           test -n "$mssline" && /sbin/iptables -t nat $mssline
+       done
+    done
+    for aaa in $ADDLIST
+    do
+      test -n "$DEV" && ip addr del $aaa dev $DEV 2>/dev/null
+    done
+    for aaa in $LOCALNETS
+    do 
+          test -n "$GWIP" && route delete -net $aaa gw $GWIP 2>/dev/null
+    done
+    showstat
+    echo "NETFILTER MASQUERADE deactivated on $DEV"
+    exit 0
+fi
+
 GWTIME=''
-if [ -n "$IPMGRWAITGW" -a -z "$DEV" -a $STOPFW -eq 0 -a -z "$SHOW" ]
+if [ -n "$IPMGRWAITGW" -a -z "$DEV" ]
 then
     echo "waiting for gateway(30 seconds) ..."
     for aaa in `seq 1 30`
@@ -215,11 +267,6 @@ then
     done
 fi
 
-if [ -z "$DEV" -a -n "$SHOW" ]
-  then
-  DEV='lo'
-fi
-
 if [ -z "$DEV" ]
   then
   test -z "$IPMGRQUIET" && route -n
@@ -229,11 +276,6 @@ fi
 
 GWIP="$(getgwaddr $DEV)"
 
-if [ -z "$GWIP" -a -n "$SHOW" ]
-  then
-  gw='127.0.0.1'
-fi
-
 if [ -z "$GWIP" ]
   then
   test -z "$IPMGRQUIET" && route -n 
@@ -241,106 +283,54 @@ if [ -z "$GWIP" ]
   exit 1
 fi
 
-test -n "$GWTIME" && echo "Probe got gateway device $GWIP // $DEV after $GWTIME sceonds."
+test -n "$GWTIME" && echo "gateway device $GWIP // $DEV found after $GWTIME sceonds."
 
-test -n "$SHOW" && showstat on && exit 0
-
-#
-if [ "$DOMON" = 'monitor' -a -z "$PHASE" ]
-then
-    if [ -z "$RUNMON" ]
-    then
-        export RUNMON='yes'
-        nohup $0 monitor </dev/zero >> /var/log/ipmgr.log 2>&1 &
-        exit $?
-    fi
-    gwmonitor 2>&1 | mlog
-    exit $?
-fi
-
+# start
 echo "- TCPMSS $MSSVAL"
-
-if [ $STOPFW -ne 0 -a -z "$PHASE" ]
-then
-    stopmon
-fi
 
 /usr/sbin/conntrack -F >/dev/null
 
 for aaa in $ADDLIST
 do
-  if [ $STOPFW -ne 0 ]
-  then
-      ip addr del $aaa dev $DEV 2>/dev/null
-  else
-      # add no existed ip
-      ip route list | grep -q "inet ${aaa} " || ip addr add $aaa dev $DEV
-  fi
+  # add no existed ip
+  ip route list | grep -q "inet ${aaa} " || ip addr add $aaa dev $DEV
 done
 
 for aaa in $LOCALNETS
 do 
-  if [ $STOPFW -ne 0 ]
-  then
-      route delete -net $aaa gw $GWIP 2>/dev/null
-  else
       # add no existed net
       ip route list | grep -q "^$aaa " || route add -net $aaa gw $GWIP
-  fi
 done
-gwdev="$(getgwdev)"
-if [ -n "$GWIP" ]
-  then
-    for aaa in 1 2 3 4 5 6 7 8
-    do
-       mssline=`iptables-save | grep 'TCPMSS' | sed -e 's#^-A #-D #g'`
-       test -n "$mssline" && /sbin/iptables $mssline
-       masqline=`iptables-save | grep 'MASQUERADE' | sed -e 's#^-A #-D #g'`
-       test -n "$masqline" && /sbin/iptables -t nat $masqline
-    done
-    if [ $STOPFW -eq 0 ]
-    then
-        if [ $MSSVAL -ne 0 ]
-        then
-            test $MSSVAL -ne 65535 && /sbin/iptables -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss $MSSVAL
-        else
-            /sbin/iptables -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
-        fi
-        /sbin/iptables -I POSTROUTING -t nat -o $gwdev -j MASQUERADE
-        sysctl -q -w net.ipv4.ip_forward=1
-        modprobe nf_nat_pptp
-        modprobe nf_conntrack_pptp
-        modprobe nf_nat_proto_gre
-        modprobe nf_conntrack_proto_gre
-        modprobe nf_conntrack_ftp
-        #
-        echo '7875' > /proc/sys/net/netfilter/nf_conntrack_generic_timeout
-        #
-        echo '7200' > /proc/sys/net/netfilter/nf_conntrack_udp_timeout
-        #
-        # https://dev.openwrt.org/ticket/12976
-        echo '14400' > /proc/sys/net/netfilter/nf_conntrack_tcp_timeout_established
-    fi
-else
-  test -z "$IPMGRQUIET" && route -n
-  echo "ERROR: probe default gateway from ANY failed."
-  exit 1
-fi
-showstat
-if [ $STOPFW -ne 0 ]
+if [ $MSSVAL -ne 0 ]
 then
-    echo "NETFILTER MASQUERADE deactivated on $gwdev"
+    test $MSSVAL -ne 65535 && /sbin/iptables -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss $MSSVAL
 else
-    echo "NETFILTER MASQUERADE activated on $gwdev"
+    /sbin/iptables -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 fi
+/sbin/iptables -I POSTROUTING -t nat -o $DEV -j MASQUERADE
+sysctl -q -w net.ipv4.ip_forward=1
+modprobe nf_nat_pptp
+modprobe nf_conntrack_pptp
+modprobe nf_nat_proto_gre
+modprobe nf_conntrack_proto_gre
+modprobe nf_conntrack_ftp
+#
+echo '7875' > /proc/sys/net/netfilter/nf_conntrack_generic_timeout
+#
+echo '7200' > /proc/sys/net/netfilter/nf_conntrack_udp_timeout
+#
+# https://dev.openwrt.org/ticket/12976
+echo '14400' > /proc/sys/net/netfilter/nf_conntrack_tcp_timeout_established
+showstat
+echo "NETFILTER MASQUERADE activated on $DEV"
 #
 EOF
 
 chmod +x /usr/sbin/ipmgr.sh
 
-/usr/sbin/ipmgr.sh monitor
+/usr/sbin/ipmgr.sh -I wlx14cf92141210 monitor
 
-echo 'IPMGRWAITGW=yes IPMGRQUIET=yes /usr/sbin/ipmgr.sh' >> /etc/rc.local
+echo '/usr/sbin/ipmgr.sh -I wlx14cf92141210 monitor' >> /etc/rc.local
 
 #
 
@@ -475,7 +465,8 @@ iface br0 inet static
 # usb wifi link, can not add wifi client to bridge
 auto wlx14cf92141210
 iface wlx14cf92141210 inet dhcp
-	post-up /usr/sbin/ipmgr.sh
+    post-up /usr/sbin/ipmgr.sh start
+    pre-down /usr/sbin/ipmgr.sh flush
     wpa-ssid Xiaomi_0800
     wpa-psk yourpassword
     #wpa-ssid tutux-136-mini
