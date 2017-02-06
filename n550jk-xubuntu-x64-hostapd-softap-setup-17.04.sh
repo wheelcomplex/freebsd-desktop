@@ -3,12 +3,150 @@
 # http://www.christianix.de/linux-tutor/hostapd.html
 # https://wireless.wiki.kernel.org/welcome
 
+apt install -y curl
+
 #
 touch /etc/rc.local
 chmod +x /etc/rc.local
 #
 sed -i -e '/exit 0/d' /etc/rc.local
 sed -i -e 's/sh -e/sh/' /etc/rc.local
+#
+
+# nginx for local test
+
+curl http://nginx.org/keys/nginx_signing.key | apt-key add -
+
+cat <<'EOF' > /etc/apt/sources.list.d/nginx.list
+# trusty for ubuntu 14.04, xenial for 16.04, zesty for 17.04
+deb http://nginx.org/packages/ubuntu/ zesty nginx
+# deb-src http://nginx.org/packages/ubuntu/ zesty nginx
+#
+EOF
+
+# install nginx 1.10 (the stable version)
+apt-get update;
+apt-get install -y nginx
+
+cat <<'EOF'>/usr/share/nginx/html/robots.txt
+Disallow: /
+EOF
+
+# using www-data
+
+cat <<'EOF' > /etc/nginx/nginx.conf 
+#
+user  www-data;
+worker_processes  2;
+
+error_log  /var/log/nginx/error.log notice;
+pid        /var/run/nginx.pid;
+
+events {
+    worker_connections  1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$scheme://$http_host$request_uri" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    keepalive_timeout  65;
+
+    #gzip  on;
+
+    include /etc/nginx/conf.d/*.conf;
+}
+EOF
+
+cat <<'EOF'> /etc/nginx/conf.d/default.conf
+# server {
+#         # http2 server
+#         listen 443 ssl http2 default_server;
+#         listen [::]:443 ssl http2 default_server;
+#         server_name _;
+#         ssl_certificate /etc/letsencrypt/live/horde.today/fullchain.pem;
+#         ssl_certificate_key /etc/letsencrypt/live/horde.today/privkey.pem;
+#         ssl_ciphers EECDH+CHACHA20:EECDH+AES128:RSA+AES128:EECDH+AES256:RSA+AES256:EECDH+3DES:RSA+3DES:!MD5;
+#         ssl_dhparam  /etc/nginx/ssl/dhparam.pem;
+#         ssl_session_cache shared:SSL:5m;
+#         ssl_session_timeout 1h;
+# 
+#         charset utf-8;
+# 
+#         access_log  /var/log/nginx/ssl.access.log  main;
+# 
+#         add_header Strict-Transport-Security "max-age=15768000; includeSubDomains: always;";
+# 
+#        location / {
+#            root   /usr/share/nginx/html;
+#            index  index.html index.htm;
+#        }
+# 
+#         # redirect server error pages to the static page /50x.html
+#         #
+#         error_page   500 502 503 504  /50x.html;
+#         location = /50x.html {
+#             root   /usr/share/nginx/html;
+#         }
+# 
+#         # proxy the PHP scripts to Apache listening on 127.0.0.1:80
+#         #
+#         #location ~ \.php$ {
+#         #    proxy_pass   http://127.0.0.1;
+#         #}
+# 
+#         # pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
+#         #
+#         #location ~ \.php$ {
+#         #    root           html;
+#         #    fastcgi_pass   127.0.0.1:9000;
+#         #    fastcgi_index  index.php;
+#         #    fastcgi_param  SCRIPT_FILENAME  /scripts$fastcgi_script_name;
+#         #    include        fastcgi_params;
+#         #}
+# 
+#         # deny access to .htaccess files, if Apache's document root
+#         # concurs with nginx's one
+#         #
+#         #location ~ /\.ht {
+#         #    deny  all;
+#         #}
+# }
+# 
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    server_name _;
+    
+        access_log  /var/log/nginx/http.access.log  main;
+
+        location / {
+            # uncomment return 301 after letencrypto setup ok
+            # should be http_host instead of server_name.
+            # return 301 https://$http_host$request_uri;
+            root /usr/share/nginx/html;
+            # index  index.html index.htm;
+        }
+        # for letsencrypt
+        location ~ /.well-known {
+            root   /usr/share/nginx/html;
+            allow all;
+        }
+}
+EOF
+
+nginx -t && service nginx restart
+
 #
 
 apt install -y conntrack
@@ -96,16 +234,18 @@ stopmon(){
 gwmonitor(){
     local delay=5
     local loss=0
-    local predev="$1"
     local DEV="$1"
-    local GWIP=""
-    echo "monitor $$ running for $DEV ..."
+    local GWIP="$(getgwaddr $DEV)"
+    local preloss=''
+    local predev="$DEV"
+    local preip="$GWIP"
+    echo "monitor $$ running for $DEV($GWIP) ..."
     while [ : ]
     do
         DEV="$(getgwdev)"
         if [ -z "$DEV" ]
         then
-            echo "waiting for gateway up ..."
+            echo "waiting for gateway device ..."
             sleep $delay
             if [ $delay -ge 15 -o $delay -eq 5 ]
             then
@@ -117,11 +257,10 @@ gwmonitor(){
             test $delay -ge 30 && delay=30
             continue
         fi
-        predev="$DEV"
         GWIP="$(getgwaddr $DEV)"
         if [ -z "$GWIP" ]
         then
-            echo "ERROR: probe gateway IP failed."
+            echo "waiting for gateway IP ..."
             sleep $delay
             if [ $delay -ge 15 -o $delay -eq 5 ]
             then
@@ -146,8 +285,11 @@ gwmonitor(){
             ifup $DEV
             sleep $delay
             let delay=$delay+5
+            preloss=$loss
+            predev="$DEV"
+            preip="$GWIP"
         else
-            test $delay -gt 5 && echo "restart NIC $DEV OK"
+            test $delay -gt 5 && echo "$predev($preip) restarted for ${preloss}% packet loss(> ${PINGLOSS}%)."
             delay=5
         fi
     done
@@ -443,23 +585,21 @@ sed -i -e 's/^dns=dnsmasq/#dns=dnsmasq/g' /etc/NetworkManager/NetworkManager.con
 
 rm -f /etc/resolv.conf
 
+# https://help.ubuntu.com/community/WifiDocs/WPAHowTo
+
 cat <<'EOF'> /etc/resolv.conf
 search localdomain
 nameserver 8.8.8.8
 EOF
 
-# wifi relay only
-
+# 
+cat <<'EOF' > /etc/network/interfaces
 #
 # networking with hostapd softap
 #
 # interfaces(5) file used by ifup(8) and ifdown(8)
 auto lo
 iface lo inet loopback
-
-# pci wifi link ath9, for hostapd
-auto wlp3s0
-iface wlp3s0 inet manual 
 
 # wired link
 auto enp2s0
@@ -472,17 +612,30 @@ iface br0 inet static
   netmask 255.255.255.0
   bridge_ports enp2s0
 
+# usb wifi link, for hostapd
+auto wlx14cf92141210
+iface wlx14cf92141210 inet manual
+
+# pci wifi link ath9, for hostapd
+auto wlp3s0
+iface wlp3s0 inet manual 
+
 # usb wifi link, can not add wifi client to bridge
 auto wlx14cf92141210
-iface wlx14cf92141210 inet dhcp
+iface wlx14cf92141210 inet dhcp 
     post-up /usr/sbin/ipmgr.sh start
     pre-down /usr/sbin/ipmgr.sh flush
     wpa-ssid Xiaomi_0800
-    wpa-psk yourpassword
+    wpa-psk meiyoumimaa
     #wpa-ssid tutux-136-mini
-    #wpa-psk yourpassword
+    #wpa-psk 13609009086
+    wpa-ap-scan 1
+    wpa-proto RSN WPA
+    wpa-pairwise CCMP TKIP
+    wpa-group CCMP TKIP
+    wpa-key-mgmt WPA-PSK
 #
-
+EOF
 
 service network-manager restart
 
@@ -490,6 +643,9 @@ service network-manager restart
 service networking stop
 
 service networking start
+
+# remove network-manager
+apt-get remove -y network-manager
 
 # NOTE: 5G AP is no support by AR9280
 
@@ -546,6 +702,8 @@ iw phy phy0 info | grep -A 20 'Supported interface modes'
 iwlist wlp3s0 freq
 
 iw list
+
+# https://w1.fi/cgit/hostap/plain/hostapd/hostapd.conf
 
 cat <<'EOF' >/etc/hostapd/hostapd.conf
 #
