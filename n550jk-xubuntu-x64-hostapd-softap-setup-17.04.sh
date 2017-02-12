@@ -149,6 +149,43 @@ nginx -t && service nginx restart
 
 #
 
+#
+cat <<'EOF'> /usr/sbin/rmmod-recursive
+#!/bin/bash
+MOD="$1"
+
+rmdeps(){
+    local mod="$1"
+    local mark="$2"
+    test -z "$mod" && return 0
+    local item=''
+    echo "${mark}$mod"
+    for item in `lsmod | grep "^$mod "|awk '{print $4}'|tr ',' ' '`
+    do
+        local deplist="`lsmod | grep "^$item "|awk '{print $4}'|tr ',' ' '`"
+        local depitem=''
+        for depitem in $deplist
+        do
+            rmdeps $depitem "${mark}-"
+        done
+        modprobe -r -v $item
+    done
+    modprobe -r -v $mod
+    return 0
+}
+
+test -z "$MOD" && echo "USAGE: $0 <mod>" && exit 1
+
+rmdeps $MOD
+
+EOF
+
+chmod +x /usr/sbin/rmmod-recursive
+
+/usr/sbin/rmmod-recursive
+
+#
+
 apt install -y conntrack
 
 #
@@ -480,7 +517,7 @@ EOF
 
 chmod +x /usr/sbin/ipmgr.sh
 
-/usr/sbin/ipmgr.sh -I wlx14cf92141210 monitor
+/usr/sbin/ipmgr.sh -I wlp4s0 monitor
 
 echo '/usr/sbin/ipmgr.sh -I wlx14cf92141210 monitor' >> /etc/rc.local
 

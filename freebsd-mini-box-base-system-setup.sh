@@ -208,10 +208,10 @@ test -x /usr/local/bin/bash && pw usermod root -s /usr/local/bin/bash || pw user
 su -
 
 #
-# rhinofly login with bash
+# david login with bash
 #
 
-test -x /usr/local/bin/bash && pw usermod rhinofly -s /usr/local/bin/bash || pw usermod rhinofly -s /bin/sh
+test -x /usr/local/bin/bash && pw usermod david -s /usr/local/bin/bash || pw usermod david -s /bin/sh
 
 mkdir -p /usr/local/sbin/ 
 
@@ -385,8 +385,9 @@ chmod +x /usr/local/sbin/pkgloop
 # git included in git-gui
 # xauth for X11 Forward
 
-pkgloop install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree bind-tools pigz gtar dot2tex unzip xauth fusefs-ntfs && \
-pkgloop install -y bash-completion
+fastpkg install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree \
+screen bind-tools pigz gtar dot2tex unzip xauth fusefs-ntfs && \
+fastpkg install -y bash-completion
 
 ln -s `which ntfs-3g` /usr/sbin/mount_ntfs-3g
 
@@ -463,6 +464,8 @@ top -I -a -t -S -P
 #
 
 cat <<EOF>> /boot/loader.conf
+#
+aesni_load="YES"
 # wait for storage, in ms
 kern.cam.boot_delay=10000
 kern.cam.scsi_delay=10000
@@ -493,7 +496,7 @@ cat /boot/loader.conf
 
 cat <<'EOF' >> /etc/rc.conf
 # kernel modules
-# if_iwm for intel 3165 wifi
+# if_iwm for intel 3165 wifi/Intel Corporation Wireless 7265 (rev 61)
 kld_list="if_iwm geom_uzip if_bridge bridgestp fdescfs linux linprocfs wlan_xauth snd_driver coretemp vboxdrv"
 #
 sshd_enable="YES"
@@ -572,20 +575,7 @@ linproc /compat/linux/proc linprocfs rw,late 0 0
 #
 EOF
 
-# create
-test -f /etc/rc.local && mv /etc/rc.local /etc/rc.local.orig.$$
-
-# NOTE: overwrite
-cat <<EOF> /etc/rc.local
-#!/bin/sh
-
-#
-EOF
-
-chmod +x /etc/rc.local
-
 # TODO: PPPoE/ADSL WAN link
-
 
 #
 # fix bridge in /etc/rc.conf
@@ -730,6 +720,8 @@ test $exitcode -ne 0 && slog "network interface configure failed: $IFCONFIG_CMD 
 # ether 00:18:2a:e8:39:ea
 cmd=''
 arg=''
+etherarg=''
+dhcparg=''
 for item in $@
 do
     if [ "$item" = 'up' ]
@@ -738,21 +730,22 @@ do
     fi
     if [ "$item" = 'SYNCDHCP' ]
         then
-        $DHCPCLIENT_CMD $IFNAME 2>&1 | pipelog
-        exitcode=${PIPESTATUS[0]}
-        test $exitcode -ne 0 && slog "network interface configure failed: $DHCPCLIENT_CMD $IFNAME"
-        break
+        dhcparg="$item"
+        continue
     fi
     if [ "$item" = 'DHCP' ]
         then
-        $DHCPCLIENT_CMD -b $IFNAME 2>&1 | pipelog
-        exitcode=${PIPESTATUS[0]}
-        test $exitcode -ne 0 && slog "network interface configure failed: $DHCPCLIENT_CMD -b $IFNAME"
-        break
+        dhcparg="$item"
+        continue
     fi
-    if [ "$cmd" = 'addm' -o "$cmd" = 'inet' -o "$cmd" = 'ether' ]
+    if [ "$cmd" = 'addm' -o "$cmd" = 'inet' -o "$cmd" = 'ether' -o "$cmd" = 'hwaddr' ]
         then
         arg="$item"
+    fi
+    if [ "$cmd" = 'ether' -o "$cmd" = 'hwaddr' ]
+    then
+        etherarg="$arg"
+        continue
     fi
     if [ "$item" = 'addm' -o "$item" = 'inet' -o "$item" = 'ether' ]
         then
@@ -778,8 +771,40 @@ do
     arg=''
 done
 
+if [ -z "$etherarg" ]
+then
+    # set ether addr of bridge to ether of first member
+    mnic=`$IFCONFIG_CMD $IFNAME | grep 'member:' | tail -n 1|awk '{print $2}'`
+    if [ -n "$mnic" ]
+    then
+        etherarg=`$IFCONFIG_CMD $mnic | grep 'ether '| awk '{print $2}'`
+    fi
+fi
+if [ -n "$etherarg" ]
+then
+    slog "network interface set ether $etherarg ..."
+    $IFCONFIG_CMD $IFNAME ether $etherarg
+    exitcode=$?
+    test $exitcode -ne 0 && slog "network interface configure failed: $IFCONFIG_CMD $IFNAME ether $etherarg"
+fi
+
 #
 $IFCONFIG_CMD $IFNAME up 2>&1 | pipelog
+
+if [ "$dhcparg" = 'SYNCDHCP' ]
+    then
+    slog "network interface $dhcparg ..."
+    $DHCPCLIENT_CMD $IFNAME 2>&1 | pipelog
+    exitcode=${PIPESTATUS[0]}
+    test $exitcode -ne 0 && slog "network interface $dhcparg failed: $DHCPCLIENT_CMD $IFNAME"
+elif [ "$dhcparg" = 'DHCP' ]
+    then
+    slog "network interface $dhcparg ..."
+    $DHCPCLIENT_CMD -b $IFNAME 2>&1 | pipelog
+    exitcode=${PIPESTATUS[0]}
+    test $exitcode -ne 0 && slog "network interface $dhcparg failed: $DHCPCLIENT_CMD -b $IFNAME"
+fi
+
 $IFCONFIG_CMD $IFNAME 2>&1 | pipelog
 
 exit $exitcode
@@ -791,21 +816,202 @@ chmod +x /sbin/ifaceboot
 
 # start on boot
 
-cat <<'EOF' >> /etc/rc.local
-# fix network interface configure in rc.conf
+# remove orig network
+cat /etc/rc.conf| grep DHCP
 
-# wlanmode hostap for softap, sta for wifi client
+sed -i -e '/DHCP/d' /etc/rc.conf
 
-#    /sbin/ifaceboot wlan0 ath0 wlanmode sta up
-#    /sbin/ifconfig wlan0 txpower 5
 #
-#    /sbin/ifaceboot bridge0 addm em1 addm em2 addm em3 addm wlan0 inet 172.236.150.43/24
+# dnsmasq dhcp server(with dns)
+#
+
+pkgloop install -y dnsmasq
+
+#
+
+cat <<'EOF'> /usr/local/etc/dnsmasq.conf
+#
+# port=0 to disable dns server part
+#
+port=53
+#
+no-resolv
+
+server=8.8.8.8
+server=8.8.4.4
+
+# server=114.114.114.114
+# server=8.8.8.8
+# server=/google.com/8.8.8.8
+
+all-servers
+
+#
+log-queries
+#
+# enable dhcp server
+#
+# dhcp-range=172.16.0.51,172.16.0.90,2400h
 #
 #
-#    /sbin/ifaceboot bridge0 addm re0 ether 4c:cc:6a:6c:cb:e6 SYNCDHCP
+log-dhcp
+#
+#
+# no-dhcp-interface=em0
+#
+#dhcp-range=vmbr0,10.236.12.21,10.236.12.30,3h
+# option 6, dns server
+#dhcp-option=vmbr0,6,10.236.8.8
+# option 3, default gateway
+#dhcp-option=vmbr0,3,10.236.12.1
+# option 15, domain-name
+#dhcp-option=vmbr0,15,localdomain
+# option 119, domain-search
+#dhcp-option=vmbr0,119,localdomain
+#
+#dhcp-range=vmbr9,198.119.0.21,198.119.0.199,3h
+# option 6, dns server
+#dhcp-option=vmbr9,6,198.119.0.11
+# option 3, default gateway
+#dhcp-option=vmbr9,3,198.119.0.11
+# option 15, domain-name
+#dhcp-option=vmbr9,15,localdomain
+# option 119, domain-search
+#dhcp-option=vmbr9,119,localdomain
+#
+# dhcp options
+#
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 DHCPOFFER(vmbr0) 10.236.12.180 36:b8:a4:ad:46:05 
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 1:netmask, 28:broadcast, 2:time-offset, 3:router, 
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 15:domain-name, 6:dns-server, 119:domain-search, 
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 12:hostname, 44:netbios-ns, 47:netbios-scope, 
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 26:mtu, 121:classless-static-route, 42:ntp-server
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 next server: 10.236.12.11
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  1 option: 53 message-type  2
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 54 server-identifier  10.236.12.11
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 51 lease-time  10800
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 58 T1  5400
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 59 T2  9450
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option:  1 netmask  255.255.255.0
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 28 broadcast  10.236.12.255
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option:  3 router  10.236.12.11
+#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option:  6 dns-server  10.236.12.11
 #
 EOF
 
+#
+
+cat <<'EOF' >> /etc/syslog.conf
+# dnsmasq server logging
+!dnsmasq
+*.*             /var/log/messages
+!dnsmasq-dhcp
+*.*             /var/log/messages
+#
+EOF
+
+service syslogd restart
+
+mv /etc/resolv.conf /etc/resolv.conf.orig.$$
+
+cat <<'EOF'>/etc/resolv.conf
+#
+search localdomain
+nameserver 127.0.0.1
+#
+EOF
+
+chflags schg /etc/resolv.conf
+
+# to unlock
+# chflags noschg /etc/resolv.conf
+# or
+# chflags 0 /etc/resolv.conf
+
+#
+
+/usr/local/etc/rc.d/dnsmasq restart
+
+sleep 1 && tail -n 20 /var/log/messages
+
+#### ------------------------
+
+# create
+test -f /etc/rc.local && mv /etc/rc.local /etc/rc.local.orig.$$
+
+# NOTE: overwrite
+
+cat <<'EOF' >> /etc/rc.local
+#!/bin/sh
+LAN_ADDR="172.16.0.1/24"
+WAN_GW="172.16.0.2"
+
+killall wpa_supplicant
+sleep 1
+killall hostapd
+sleep 1
+ifconfig wlan0 destroy
+sleep 1
+ifconfig wlan1 destroy
+sleep 1
+ifconfig bridge0 destroy
+
+#
+if [ "$1" = "stop" ]
+then
+    /sbin/ifaceboot bridge0 addm re0 addm re1 addm am0 addm am1 addm wlan0 inet $LAN_ADDR
+    test -n "$WAN_GW" && route add -net 0/0 $WAN_GW
+    ifconfig
+    netstat -nr
+    exit 0
+fi
+
+# fix network interface configure in rc.conf
+/sbin/ifaceboot wlan0 ath0 wlanmode hostap up
+sleep 1
+/sbin/ifaceboot wlan1 run0 wlanmode sta up
+#/sbin/ifaceboot wlan1 rtwn0 wlanmode sta up
+sleep 1
+#
+/sbin/ifconfig wlan0 txpower 30
+/sbin/ifconfig wlan1 txpower 30
+#
+/sbin/ifconfig wlan0 up 
+/sbin/ifconfig wlan1 up 
+#
+/sbin/ifaceboot bridge0 addm re0 addm re1 addm am0 addm am1 addm wlan0 inet $LAN_ADDR
+test -n "$WAN_GW" && route add -net 0/0 $WAN_GW
+
+# load xauth or you will failed
+/sbin/kldload wlan_xauth 2>/dev/null
+/sbin/kldload wlan_ccmp 2>/dev/null
+/sbin/kldload wlan_tkip 2>/dev/null
+
+sleep 5
+rm -f /var/run/hostapd/wlan0
+/etc/rc.d/hostapd onestart
+#
+
+#route add -net 0/0 192.168.31.1
+
+/usr/sbin/wpa_supplicant -B -i wlan1 -c /etc/wpa_supplicant.conf
+echo ""
+echo "waiting for wlan1 ..."
+for aaa in `seq 1 90`
+do
+    ifconfig wlan1 | grep -q 'status: associated'
+    test $? -eq 0 && echo "connected" && ifconfig wlan1 && break
+    sleep 1
+done
+dhclient wlan1
+#
+#netstat -nr | grep bridge
+#
+/usr/sbin/pfsess start > /dev/null
+#
+EOF
+
+chmod +x /etc/rc.local
 
 #
 # UTF-8
@@ -930,121 +1136,6 @@ pkg install -y convmv
 # convmv -r -f gbk -t utf-8 --notest *
 
 #
-# dnsmasq dhcp server(with dns)
-#
-
-pkgloop install -y dnsmasq
-
-#
-
-cat <<'EOF'> /usr/local/etc/dnsmasq.conf
-#
-# port=0 to disable dns server part
-#
-port=53
-#
-no-resolv
-
-server=10.236.8.8
-server=10.237.8.8
-
-# server=114.114.114.114
-# server=8.8.8.8
-# server=/google.com/8.8.8.8
-
-all-servers
-
-#
-log-queries
-#
-# enable dhcp server
-#
-dhcp-range=172.236.150.51,172.236.150.90,2400h
-#
-#
-log-dhcp
-#
-#
-no-dhcp-interface=em0
-#
-#dhcp-range=vmbr0,10.236.12.21,10.236.12.30,3h
-# option 6, dns server
-#dhcp-option=vmbr0,6,10.236.8.8
-# option 3, default gateway
-#dhcp-option=vmbr0,3,10.236.12.1
-# option 15, domain-name
-#dhcp-option=vmbr0,15,localdomain
-# option 119, domain-search
-#dhcp-option=vmbr0,119,localdomain
-#
-#dhcp-range=vmbr9,198.119.0.21,198.119.0.199,3h
-# option 6, dns server
-#dhcp-option=vmbr9,6,198.119.0.11
-# option 3, default gateway
-#dhcp-option=vmbr9,3,198.119.0.11
-# option 15, domain-name
-#dhcp-option=vmbr9,15,localdomain
-# option 119, domain-search
-#dhcp-option=vmbr9,119,localdomain
-#
-# dhcp options
-#
-#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 DHCPOFFER(vmbr0) 10.236.12.180 36:b8:a4:ad:46:05 
-#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 1:netmask, 28:broadcast, 2:time-offset, 3:router, 
-#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 15:domain-name, 6:dns-server, 119:domain-search, 
-#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 12:hostname, 44:netbios-ns, 47:netbios-scope, 
-#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 requested options: 26:mtu, 121:classless-static-route, 42:ntp-server
-#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 next server: 10.236.12.11
-#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  1 option: 53 message-type  2
-#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 54 server-identifier  10.236.12.11
-#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 51 lease-time  10800
-#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 58 T1  5400
-#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 59 T2  9450
-#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option:  1 netmask  255.255.255.0
-#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option: 28 broadcast  10.236.12.255
-#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option:  3 router  10.236.12.11
-#Nov  7 21:40:18 b2c-dc-pve1 dnsmasq-dhcp[8620]: 3744951815 sent size:  4 option:  6 dns-server  10.236.12.11
-#
-EOF
-
-#
-
-cat <<'EOF' >> /etc/syslog.conf
-# dnsmasq server logging
-!dnsmasq
-*.*             /var/log/messages
-!dnsmasq-dhcp
-*.*             /var/log/messages
-#
-EOF
-
-service syslogd restart
-
-mv /etc/resolv.conf /etc/resolv.conf.orig.$$
-
-cat <<'EOF'>/etc/resolv.conf
-#
-search localdomain
-nameserver 127.0.0.1
-#
-EOF
-
-chflags schg /etc/resolv.conf
-
-# to unlock
-# chflags noschg /etc/resolv.conf
-# or
-# chflags 0 /etc/resolv.conf
-
-#
-
-/usr/local/etc/rc.d/dnsmasq restart
-
-sleep 1 && tail -n 20 /var/log/messages
-
-#### ------------------------
-
-#
 # http://yaws.hyber.org/privbind.yaws
 # http://crossbar.io/docs/Running-on-privileged-ports/
 # binding to privileged ports
@@ -1121,33 +1212,28 @@ EOF
 ## wpa2-psk wifi client
 # for open wifi: ifconfig wlan0 ssid xxxx && dhclient wlan0
 
-# to list ssid
-ifconfig wlan0 scan
+cp /etc/wpa_supplicant.conf /etc/wpa_supplicant.conf.dist.$$
 
-pkgloop install -y wpa_supplicant
-
-cp /usr/local/etc/wpa_supplicant.conf /usr/local/etc/wpa_supplicant.conf.dist
-
-echo 'wpa_supplicant_program="/usr/local/sbin/wpa_supplicant"' >> /etc/rc.conf
-
-cat <<'EOF' >/usr/local/etc/wpa_supplicant.conf
+cat <<'EOF' >/etc/wpa_supplicant.conf
 #####wpa_supplicant configuration file ###############################
 #
 update_config=0
 
 #
-ctrl_interface=/var/run/wpa_supplicant
+#ctrl_interface=/var/run/wpa_supplicant
 
-eapol_version=1
+#eapol_version=1
 
 ap_scan=1
 
-fast_reauth=1
+#fast_reauth=1
 
 # Simple case: WPA-PSK, PSK as an ASCII passphrase, allow all valid ciphers
 network={
-    ssid="tutux-136-mini"
-    psk="yourpassword"
+    ssid="aluminium-136"
+    psk="13609009086"
+    #ssid="Xiaomi_0800"
+    #psk="meiyoumimaa"
     scan_ssid=1
     key_mgmt=WPA-PSK
     proto=RSN
@@ -1155,94 +1241,27 @@ network={
     group=CCMP TKIP
     priority=5
 }
-EOF
-
-
-cat <<'EOF' >/usr/local/etc/wpa_supplicant.conf
-#####wpa_supplicant configuration file ###############################
 #
-update_config=0
-
-#
-ctrl_interface=/var/run/wpa_supplicant
-
-eapol_version=1
-
-ap_scan=1
-
-fast_reauth=1
-
-# Simple case: WPA-PSK, PSK as an ASCII passphrase, allow all valid ciphers
-network={
-    ssid="TMWaterview"
-    psk="yourpassword"
-    scan_ssid=1
-    key_mgmt=WPA-PSK
-    proto=RSN
-    pairwise=CCMP TKIP
-    group=CCMP TKIP
-    priority=5
-}
 EOF
-
 
 #
 # debug
 #
 
-/usr/local/sbin/wpa_supplicant -d -i wlan0 -c /usr/local/etc/wpa_supplicant.conf
+dmesg | grep -C 5 -i RF
+dmesg | grep -C 5 -i Wireless
+
+# for wifi client
+/sbin/ifaceboot wlan1 iwm0 wlanmode sta up
+
+# list ssid
+ifconfig wlan1 scan;sleep 3;ifconfig wlan1 scan;
+
+/usr/sbin/wpa_supplicant -d -i wlan1 -c /etc/wpa_supplicant.conf
 
 # on boot startup
-
-cat <<'EOF' >> /etc/rc.local
+# check /etc/rc.local
 #
-/usr/local/sbin/wpa_supplicant -B -i wlan0 -c /usr/local/etc/wpa_supplicant.conf
-sleep 5
-dhclient wlan0
-#
-EOF
-
-#
-# addon pkgs
-#
-# https://www.freebsd.org/doc/handbook/pkgng-intro.html
-#
-
-pkg audit -F && pkg upgrade && pkg autoremove
-
-
-#
-
-
-#
-# base system source
-#
-
-rm -rf /usr/src && mkdir -p /usr/src/ && git clone https://github.com/freebsd/freebsd.git /usr/src
-
-# #
-# # upgrade by source
-# #
-# # https://www.freebsd.org/doc/handbook/synching.html
-# #
-# pkg install -y ca_root_nss subversion
-# #
-# # ports
-# #
-# svn checkout https://svn.FreeBSD.org/ports/head /usr/ports && svn update /usr/ports
-# 
-# #
-# # doc
-# #
-# svn checkout https://svn.FreeBSD.org/doc/head /usr/doc && svn update /usr/doc
-# 
-# 
-# #
-# # base system source
-# #
-# 
-# svn checkout https://svn.FreeBSD.org/base/head /usr/src && svn update /usr/src
-# 
 
 # ssh remote forward
 # https://help.ubuntu.com/community/SSH/OpenSSH/PortForwarding

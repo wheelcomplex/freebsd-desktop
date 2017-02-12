@@ -2,21 +2,21 @@
 #
 #
 
-/sbin/ifaceboot wlan0 ath0 wlanmode hostap up
+/sbin/ifaceboot wlan0 rtwn0 wlanmode hostap up
 
-/sbin/ifaceboot bridge0 addm em1 addm em2 addm em3 addm wlan0 inet 172.236.150.43/24
+/sbin/ifaceboot bridge0 addm re0 addm wlan0 inet 172.16.0.1/24
 
 #
 
 # start on boot
 cat <<'EOF' >> /etc/rc.local
 # fix network interface configure in rc.conf
-/sbin/ifaceboot wlan0 ath0 wlanmode hostap up
+/sbin/ifaceboot wlan0 rtwn0 wlanmode hostap up
 #
-/sbin/ifconfig wlan0 txpower 5
+/sbin/ifconfig wlan0 txpower 30
 #
 
-/sbin/ifaceboot bridge0 addm em1 addm em2 addm em3 addm wlan0 inet 172.236.150.43/24
+/sbin/ifaceboot bridge0 addm re0 addm wlan0 inet 172.236.0.1/24
 
 #
 EOF
@@ -28,7 +28,7 @@ cat <<'EOF' >> /etc/rc.local
 #
 # wlanmode hostap for softap, sta for wifi client
 
-/sbin/ifaceboot wlan0 ath0 wlanmode hostap up
+/sbin/ifaceboot wlan0 rtwn0 wlanmode hostap up
 #
 /sbin/ifconfig wlan0 txpower 5
 #
@@ -45,6 +45,7 @@ EOF
 #
 # https://www.freebsd.org/doc/handbook/network-wireless.html
 #
+
 pkg install -y hostapd pciutils usbutils
 
 #
@@ -53,7 +54,7 @@ dmesg | grep -C 10 -i wlan
 
 lspci && usbconfig list && lsusb
 
-# ath0: MAC/BBP RT3070 (rev 0x0201), RF RT3020 (MIMO 1T1R), address 10:6f:3f:2c:09:fb
+# rtwn0: MAC/BBP RT3070 (rev 0x0201), RF RT3020 (MIMO 1T1R), address 10:6f:3f:2c:09:fb
 
 #
 # 03:00.0 Network controller: Qualcomm Atheros AR928X Wireless Network Adapter (PCI-Express) (rev 01)
@@ -64,6 +65,20 @@ ifconfig wlan0 list caps
 ifconfig wlan0 list caps | grep -i hostap
 
 # 
+#
+
+cat <<'EOF' >> /etc/syslog.conf
+# hostapd server logging
+!hostapd
+*.*             /var/log/messages
+#
+EOF
+
+service syslogd restart
+
+# load xauth or you will failed
+
+/sbin/kldload wlan_xauth
 
 # drivercaps=4f8def41<STA,FF,IBSS,PMGT,HOSTAP,AHDEMO,TXPMGT,SHSLOT,SHPREAMBLE,MONITOR,MBSS,WPA1,WPA2,BURST,WME,WDS,TXFRAG>
 # cryptocaps=1f<WEP,TKIP,AES,AES_CCM,TKIPMIC>
@@ -80,15 +95,14 @@ interface=wlan0
 driver=bsd
 #
 # SSID to be used in IEEE 802.11 management frames
-# md5sum h8 from 136
-ssid=f14b38s65d
+ssid=ntank-136
 
 # Country code (ISO/IEC 3166-1).
 country_code=US
 
 # Operation mode (a = IEEE 802.11a, b = IEEE 802.11b, g = IEEE 802.11g)
 hw_mode=g
-channel=3
+channel=9
 wpa=2
 wpa_key_mgmt=WPA-PSK
 wpa_passphrase=13609009086
@@ -97,21 +111,6 @@ ctrl_interface=/var/run/hostapd
 ctrl_interface_group=wheel
 #
 EOF
-
-#
-
-cat <<'EOF' >> /etc/syslog.conf
-# hostapd server logging
-!hostapd
-*.*             /var/log/messages
-#
-EOF
-
-service syslogd restart
-
-# load xauth or you will failed
-
-/sbin/kldload wlan_xauth
 
 hostapd -d /etc/hostapd.conf
 
@@ -176,7 +175,7 @@ cat <<'EOF' > /etc/pf.conf
 #------------------------------------------------------------------------
 logopt = "log"
 # interfaces
-ext_if  = "re0"
+ext_if  = "wlan1"
 ext_vpn_if  = "ng0"
 wifi_if = "wlan0"
 lan_if  = "bridge0"
@@ -297,7 +296,7 @@ cat <<'EOF' > /etc/pf.conf
 #------------------------------------------------------------------------
 #
 # interfaces
-ext_if  = "re0"
+ext_if  = "wlan1"
 ext_vpn_if  = "ng0"
 lan_if = "bridge0"
 
@@ -397,6 +396,8 @@ chmod +x /usr/sbin/pfsess
 
 /usr/sbin/pfsess start
 
+echo '/usr/sbin/pfsess start' >> /etc/rc.local
+
 # pfctl -s all
 
 #      -F modifier
@@ -415,85 +416,60 @@ chmod +x /usr/sbin/pfsess
 #              -F all        Flush all of the above.
 # 
 
-cat <<'EOF' >> /etc/rc.conf
-#
-### http://www.freebsd.org/doc/en_US.ISO8859-1/books/handbook/firewalls-pf.html
-pf_enable="YES"                 # Set to YES to enable packet filter (pf)
-pf_rules="/etc/pf.conf"         # rules definition file for pf
-pf_program="/sbin/pfctl"        # where the pfctl program lives
-pf_flags=""                     # additional flags for pfctl
-pflog_enable="YES"              # Set to YES to enable packet filter logging
-pflog_logfile="/var/log/pflog"  # where pflogd should store the logfile
-#
-EOF
-
-#
-# make pptp snat work
-#
-# https://forum.pfsense.org/index.php?topic=46172.0
-#
-
-#
-# ipfw default to block, setup rules first
-#
-
-cat <<'EOF' > /etc/rc.pptp.ipfw
+cat <<'EOF'>/etc/rc.local
 #!/bin/sh
-
-# from: 
-# http://www.cyberciti.biz/faq/howto-setup-freebsd-ipfw-firewall/
-# https://www.howtoforge.com/setting_up_a_freebsd_wlan_access_point
-# https://forum.pfsense.org/index.php?topic=46172.0
+killall wpa_supplicant
+sleep 1
+killall hostapd
+sleep 1
+ifconfig wlan0 destroy
+sleep 1
+ifconfig wlan1 destroy
+sleep 1
+ifconfig bridge0 destroy
 #
-# ipfw work with pf for pptp/gre
+# fix network interface configure in rc.conf
+/sbin/ifaceboot wlan0 run0 wlanmode hostap up
+sleep 1
+/sbin/ifaceboot wlan1 rtwn0 wlanmode sta up
+sleep 1
+#
+/sbin/ifconfig wlan0 txpower 30
+/sbin/ifconfig wlan1 txpower 30
+#
+/sbin/ifconfig wlan0 up 
+/sbin/ifconfig wlan1 up 
+#
+/sbin/ifaceboot bridge0 addm re0 addm wlan0 inet 172.16.0.1/24
+
+# load xauth or you will failed
+/sbin/kldload wlan_xauth 2>/dev/null
+/sbin/kldload wlan_ccmp 2>/dev/null
+/sbin/kldload wlan_tkip 2>/dev/null
+
+sleep 5
+rm -f /var/run/hostapd/wlan0
+/etc/rc.d/hostapd onestart
 #
 
-kldload libalias
-kldload ipfw_nat
+#route add -net 0/0 192.168.31.1
 
-date >> /root/ipfw.list
-echo "ARGS: $@" >> /root/ipfw.list
-ipfw list >> /root/ipfw.list
-date >> /root/ipfw.list
-
-ext_if="re0"
-ext_vpn_if="ng0"
-
+/usr/sbin/wpa_supplicant -B -i wlan1 -c /etc/wpa_supplicant.conf
+echo ""
+echo "waiting for wlan1 ..."
+for aaa in `seq 1 90`
+do
+    ifconfig wlan1 | grep -q 'status: associated'
+    test $? -eq 0 && echo "connected" && ifconfig wlan1 && break
+    sleep 1
+done
+dhclient wlan1
 #
-if [ -z "$SSH_CONNECTION" ]
-    then
-    ipfw -q -f flush
-fi
-
-# default open
-ipfw add 10 allow all from any to any
-
+#netstat -nr | grep bridge
 #
-ipfw nat 1 config if $ext_if same_ports reset unreg_only
-ipfw nat 2 config if $ext_vpn_if same_ports reset unreg_only
-
-ipfw add 1000 nat 1 gre from any to any
-
-ipfw list
-
-date >> /root/ipfw.list
-ipfw list >> /root/ipfw.list
-date >> /root/ipfw.list
-
-#
-EOF
-
-chmod +x /etc/rc.pptp.ipfw
-
-/etc/rc.pptp.ipfw start
-
-cat <<'EOF' >> /etc/rc.conf
-#
-firewall_enable="YES"
-firewall_script="/etc/rc.pptp.ipfw"
+/usr/sbin/pfsess start > /dev/null
 #
 EOF
-
 
 #
 
@@ -693,502 +669,3 @@ http_proxy='' wget -S http://127.0.0.1/ -O -
 http_proxy='http://127.0.0.1:9080' wget -S --max-redirect=0 http://github.com/ -O -
 
 #
-
-#
-# pptp server + client by mpd5
-#
-# https://forums.freebsd.org/threads/freebsd-pptp-vpn-client-howto.37191/
-# http://hwchiu.logdown.com/posts/211563-mpd5-on-freebsd-100
-# https://dnaeon.github.io/installing-and-configuring-a-pptp-server-with-mpd5-on-freebsd/
-#
-# note: pppd no exist after FreeBSD 7.x
-#
-#
-
-pkg install -y mpd5
-
-mkdir -p /usr/local/etc/mpd5/scripts/
-
-cat <<'EOF' > /usr/local/etc/mpd5/mpd.conf
-#
-startup:
-    set user rhinofly mpdfor2016 admin
-    # telnet mpd-server.example.org 5005
-    set console self 127.0.0.1 5005
-    set console open
-    # chrome http://mpd-server.example.org:5006
-    set web self 0.0.0.0 5006
-    set web open
-
-default:
-    load pptpclient
-    # load pptpserver
-
-pptpserver:
-    set ippool add pool1 192.168.88.50 192.168.88.99
-    create bundle template B
-    set iface enable proxy-arp
-    set iface idle 1800
-    set iface enable tcpmssfix
-    set iface route 192.168.88.1
-    set ipcp yes vjcomp
-    set ipcp ranges 192.168.88.1/32 ippool pool1
-    set ipcp dns 4.2.2.1
-    set ipcp dns 4.2.2.2
-    set ipcp nbns 192.168.88.1
-    set bundle enable compression
-    set ccp yes mppc
-    set mppc yes e40
-    set mppc yes e128
-    set mppc yes stateless
-    create link template L pptp
-    set link fsm-timeout 5
-    set link action bundle B
-    set link enable multilink
-    set link yes acfcomp protocomp
-    set link no pap chap eap chap-msv2
-    set link enable chap chap-msv2 eap
-    set link accept chap-msv2 
-    set link keep-alive 10 60
-    set link mtu 1460
-    # security
-    set pptp self 27.12.32.17
-    set link enable incoming
-#
-
-pptpclient:
-    create bundle static B1
-    set ipcp ranges 0.0.0.0/0 0.0.0.0/0
-
-    set iface up-script /usr/local/etc/mpd5/scripts/ip.up
-    set iface down-script /usr/local/etc/mpd5/scripts/ip.down
-
-    set bundle enable compression
-    set ccp yes mppc
-    set mppc accept compress
-    set mppc yes e40 e56 e128
-    set mppc yes stateless
-    
-    create link static L1 pptp
-    set link action bundle B1
-    set link accept chap
-    set link max-redial 0
-
-    # security
-    set auth authname "VPNUSER"
-    set auth password VPNPASSWORD
-    set pptp peer VPN.server.com
-
-    set pptp disable windowing
-    # start to dial-out
-    open
-#
-
-EOF
-
-# change vpn account info
-# vi /usr/local/etc/mpd5/mpd.conf
-
-
-#
-# for pptp server
-#
-
-cat <<'EOF' >> /usr/local/etc/mpd5/mpd.secret
-#
-foo   password226foo 192.168.88.100
-bar   password227bar *
-#
-EOF
-
-
-#
-# vpn routing
-#
-
-
-mkdir -p /usr/local/etc/mpd5/scripts/ip.up.d /usr/local/etc/mpd5/scripts/ip.down.d
-
-
-cat <<'EOF' > /usr/local/etc/mpd5/scripts/mpd.subr
-#!/bin/sh
-#
-export PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
-#
-export LOGCONSOLE='NO'
-if [ -z "$LOGTAG" ]
-    then
-    LOGTAG="$0"
-fi
-export LOGTAG
-#
-LOGGER="/usr/bin/logger -p user.notice -t mpd5.script"
-#
-# do not login
-if [ -z "$USER" ]
-    then
-    LOGCONSOLE=''
-fi
-#
-slog(){
-    local msg="[$LOGTAG] $@"
-    test "$LOGCONSOLE" = 'YES' && echo "`date` $0 $msg" >&2
-    $LOGGER "$msg"
-}
-
-#
-pipelog(){
-    local oneline
-    while IFS= read -r oneline
-    do
-        slog "$oneline"
-    done
-}
-#
-EOF
-
-cat <<'EOF' > /usr/local/etc/mpd5/scripts/ip.up
-#!/bin/bash
-. /usr/local/etc/mpd5/scripts/mpd.subr
-#
-#LOGTAG="ip.up"
-#
-# ARGS: ng0 inet 10.10.0.8/32 10.10.0.1 -   107.191.53.94
-
-# # slog "ARGS:"
-# # slog "#1: $1"
-# # slog "#2: $2"
-# # slog "#3: $3" # local vpn ip
-# # slog "#4: $4" # remote vpn ip
-# # slog "#5: $5"
-# # slog "#6: $6" # remote wanip
-# # slog "#7: $7" 
-# # slog "#8: $8"
-# # slog "#9: $9"
-# # slog "---"
-
-## ARGS:
-## #1: ng0
-## #2: inet
-## #3: 10.10.0.11/32
-## #4: 10.10.0.1
-## #5: -
-## #6: 107.191.53.94
-## #7: 
-## #8: 
-## #9: 
-## ---
-
-slog "mpd5 script up: $@"
-exitcode=0
-for script in `ls -A /usr/local/etc/mpd5/scripts/ip.up.d/* 2>/dev/null`
-do
-    test ! -x "$script" && slog "warning: $script not executable." && continue
-    scriptname=`basename $script`
-    LOGTAG="up $scriptname" $script $@ 2>&1 | LOGTAG="up $scriptname" pipelog
-    subcode=${PIPESTATUS[0]}
-    if [ $subcode -ne 0 ]
-        then
-        # exitcode=$subcode
-        slog "warning: execute $script $@ failed."
-    fi
-done
-exit $exitcode
-#
-EOF
-
-cat <<'EOF' > /usr/local/etc/mpd5/scripts/ip.down
-#!/bin/bash
-. /usr/local/etc/mpd5/scripts/mpd.subr
-#
-#LOGTAG="ip.down"
-#
-slog "mpd5 script down: $@"
-exitcode=0
-for script in `ls -A /usr/local/etc/mpd5/scripts/ip.down.d/* 2>/dev/null`
-do
-    test ! -x "$script" && slog "warning: $script not executable." && continue
-    scriptname=`basename $script`
-    LOGTAG="down $scriptname" $script $@ 2>&1 | LOGTAG="down $scriptname" pipelog
-    subcode=${PIPESTATUS[0]}
-    if [ $subcode -ne 0 ]
-        then
-        # exitcode=$subcode
-        slog "warning: execute $script $@ failed."
-    fi
-done
-exit $exitcode
-#
-EOF
-
-#
-
-cat <<'EOF' > /usr/local/etc/mpd5/scripts/ip.up.d/00defaultroute
-#!/bin/bash
-. /usr/local/etc/mpd5/scripts/mpd.subr
-#
-#LOGTAG="pptp.up.defaultroute"
-#
-DEFAULTGATEWAY='/var/run/mpd.pptpclient.defaultgateway'
-#
-# default            10.236.157.1       UGS         re0
-#
-wangw=`netstat -nr | grep 'default' | grep -v 'ng[0-9]*' | head -n 1 | awk '{print $2}'`
-if [ -z "$wangw" ]
-    then
-    slog "warning: probe system default gateway failed."
-    exit 1
-fi
-#
-REMOTE="$6"
-LOCAL="`echo "$3" | awk -F'/' '{print $1}'`"
-slog "setup vpn default route: system $wangw, vpn $LOCAL, local $3, remote $REMOTE($4)"
-echo $wangw > $DEFAULTGATEWAY
-if [ $? -ne 0 ]
-    then
-    slog "warning: save system default gateway to $DEFAULTGATEWAY failed."
-    exit 1
-fi
-route delete default
-route delete $4 2>/dev/null
-route add $REMOTE $wangw
-route add default $LOCAL
-#
-EOF
-
-cat <<'EOF' > /usr/local/etc/mpd5/scripts/ip.down.d/99defaultroute
-#!/bin/bash
-. /usr/local/etc/mpd5/scripts/mpd.subr
-#
-#LOGTAG="pptp.down.defaultroute"
-
-DEFAULTGATEWAY='/var/run/mpd.pptpclient.defaultgateway'
-#
-pptpgw=`netstat -nr | grep 'default' | grep 'ng[0-9]*' | head -n 1 | awk '{print $2}'`
-if [ -z "$pptpgw" ]
-    then
-    slog "warning: probe pptp default gateway failed."
-    exit 1
-fi
-#
-wangw=`cat $DEFAULTGATEWAY`
-if [ -z "$wangw" ]
-    then
-    slog "warning: load system default gateway failed."
-    exit 1
-fi
-REMOTE="$6"
-LOCAL="`echo "$3" | awk -F'/' '{print $1}'`"
-slog "restore system default route: system $wangw, vpn $pptpgw($REMOTE), local $3"
-route delete $4
-route delete default
-route add default $wangw
-rm -f $DEFAULTGATEWAY
-#
-EOF
-
-
-#
-# static route
-#
-
-cat <<'EOF'> /usr/local/etc/mpd5/static.routes
-#
-# dest-route route-to
-#
-# SYSGW = system default gateway
-# VPNGW = vpn remote peer
-#
-remotename 10.0.0.0/8 SYSGW
-#
-EOF
-
-#
-
-cat <<'EOF' > /usr/local/etc/mpd5/scripts/ip.up.d/01staticroute
-#!/bin/bash
-. /usr/local/etc/mpd5/scripts/mpd.subr
-#
-#LOGTAG="pptp.up.staticroute"
-#
-STATICFILE='/usr/local/etc/mpd5/static.routes'
-DEFAULTGATEWAY='/var/run/mpd.pptpclient.defaultgateway'
-#
-ACTIVEDFILE='/var/run/mpd.pptpclient.staticroute'
-#
-wangw=`netstat -nr | grep 'default' | grep -v 'ng[0-9]*' | head -n 1 | awk '{print $2}'`
-if [ -z "$wangw" ]
-    then
-    wangw=`cat $DEFAULTGATEWAY`
-    if [ -z "$wangw" ]
-        then
-            slog "warning: probe system default gateway failed."
-        exit 1
-    else
-        slog "info: load system default gateway $wangw ok."
-    fi
-fi
-#
-test -s "$ACTIVEDFILE" && slog "warning: overwrite exist $ACTIVEDFILE" && cat $ACTIVEDFILE | pipelog && slog "---"
-REMOTE="$6"
-LOCAL="`echo "$3" | awk -F'/' '{print $1}'`"
-slog "active static route: system $wangw, vpn $LOCAL, local $3, remote $REMOTE($4)"
-#
-echo '' > $ACTIVEDFILE
-exitcode=0
-while read line
-do
-    echo "$line" | grep -q '^#' && continue
-    echo "$line" | grep -q '^$' && continue
-
-    remotename=`echo "$line" | awk '{print $1}'`
-    target=`echo "$line" | awk '{print $2}'`
-    routedst=`echo "$line" | awk '{print $3}'`
-    target="`echo $target|awk -F'/32' '{print $1}'`"
-    if [ -z "$routedst" -o -z "$target" ]
-        then
-        slog "warning: invalid static route: $line"
-        continue
-    fi
-    case $routedst in
-        SYSGW)
-        routedst="$wangw"
-    ;;
-    VPNGW)
-        routedst="$LOCAL"
-    ;;
-    esac
-    routetype='-host'
-    echo "$target"| grep -q '/'
-    test $? -eq 0 && routetype='-net'
-    route -n show $target 2>/dev/null | grep -q "route to: $routedst"
-    if [ $? -eq 0 ]
-        then
-        slog "warning: static route: $routetype $target $routedst($line) already exist."
-        route -n show $target 2>&1 | pipelog
-        continue
-    fi
-    route add $routetype $target $routedst
-    if [ $? -ne 0 ]
-        then
-        slog "warning: add static route: $routetype $target $routedst($line) failed."
-        exitcode=1
-    else
-        slog "info: add static route: $routetype $target $routedst($line) ok."
-        echo "$remotename $target $routedst # $line" >> $ACTIVEDFILE
-    fi
-done < $STATICFILE
-#
-exit $exitcode
-#
-EOF
-
-cat <<'EOF' > /usr/local/etc/mpd5/scripts/ip.down.d/90staticroute
-#!/bin/bash
-. /usr/local/etc/mpd5/scripts/mpd.subr
-#
-#LOGTAG="pptp.down.staticroute"
-#
-ACTIVEDFILE='/var/run/mpd.pptpclient.staticroute'
-#
-DEFAULTGATEWAY='/var/run/mpd.pptpclient.defaultgateway'
-#
-wangw=`cat $DEFAULTGATEWAY`
-if [ -z "$wangw" ]
-    then
-    slog "warning: load system default gateway failed."
-    exit 1
-fi
-#
-REMOTE="$6"
-LOCAL="`echo "$3" | awk -F'/' '{print $1}'`"
-slog "deactive static route: system $wangw, vpn $LOCAL, local $3, remote $REMOTE($4)"
-#
-exitcode=0
-while read line
-do
-    echo "$line" | grep -q '^#' && continue
-    echo "$line" | grep -q '^$' && continue
-
-    remotename=`echo "$line" | awk '{print $1}'`
-    target=`echo "$line" | awk '{print $2}'`
-    routedst=`echo "$line" | awk '{print $3}'`
-    target="`echo $target|awk -F'/32' '{print $1}'`"
-    if [ -z "$routedst" -o -z "$target" ]
-        then
-        slog "warning: invalid static route: $line"
-        continue
-    fi
-    case $routedst in
-        SYSGW)
-        routedst="$wangw"
-    ;;
-    VPNGW)
-        routedst="$LOCAL"
-    ;;
-    esac
-    routetype='-host'
-    echo "$target"| grep -q '/'
-    test $? -eq 0 && routetype='-net'
-    route -n show $target | grep -q "gateway: $routedst"
-    if [ $? -ne 0 ]
-        then
-        slog "warning: static route: $routetype $target $routedst($line) not exist."
-        #route -n show $target 2>&1 | pipelog
-        continue
-    fi
-    route del $routetype $target $routedst
-    if [ $? -ne 0 ]
-        then
-        slog "warning: delete static route: $routetype $target $routedst($line) failed."
-        route del $routetype $target $routedst
-        exitcode=1
-    else
-        slog "info: delete static route: $routetype $target $routedst($line) ok."
-    fi
-done < $ACTIVEDFILE
-#
-rm -f $ACTIVEDFILE
-#
-exit $exitcode
-#
-EOF
-
-
-# security
-chown -R root:wheel /usr/local/etc/mpd5
-chmod -R 0600 /usr/local/etc/mpd5/*
-
-chmod -R 0755 /usr/local/etc/mpd5/scripts/
-
-chmod 0700 /usr/local/etc/mpd5
-
-ls -alhR /usr/local/etc/mpd5/
-
-cat <<'EOF' >> /etc/syslog.conf
-# mpd server logging
-!mpd
-*.*             /var/log/messages
-#
-EOF
-
-/etc/rc.d/syslogd restart 
-
-tail -f /var/log/messages &
-
-/usr/local/sbin/mpd5 -p /var/run/mpd5.pid
-
-/usr/local/etc/rc.d/mpd5 onestart
-
-#
-cat <<'EOF' >> /etc/rc.conf
-# enable mpd pptp server/client
-mpd_enable="YES"
-mpd_flags="-b"
-#
-gateway_enable="YES"
-#
-EOF
-
-#
-

@@ -16,12 +16,12 @@
 
 # mini X
 
-pkgloop install -y git-gui meld  pinentry-curses pinentry-tty geany jpeg-turbo xv rdesktop
+fastpkg install -y git-gui meld  pinentry-curses pinentry-tty geany jpeg-turbo xv rdesktop
 
-pkgloop install -y virt-viewer chromium firefox openjdk icedtea-web
+fastpkg install -y virt-viewer chromium firefox openjdk icedtea-web
 
 # for armv6 rpi2
-# pkgloop install -y git-gui meld pinentry-curses pinentry-tty geany jpeg-turbo xv
+# fastpkg install -y git-gui meld pinentry-curses pinentry-tty geany jpeg-turbo xv
 
 #
 # https://www.freebsd.org/doc/handbook/x11.html
@@ -31,14 +31,20 @@ pkgloop install -y virt-viewer chromium firefox openjdk icedtea-web
 
 allxfce4=`pkg search xfce | grep '^xfce' | awk '{print $1}'`
 
+echo $allxfce4
+
 # zh-fcitx-googlepinyin
 
 pkgloop install -y ${allxfce4} xorg xf86-video-scfb xdm slim xlockmore zh-fcitx zh-fcitx-cloudpinyin \
 zh-fcitx-table-extra zh-fcitx-configtool gnome3-lite
 
-pkgloop install -y virtualbox-ose virtualbox-ose-kmod virtualbox-ose-additions apache-openoffice
+# libreoffice or apache-openoffice
+pkgloop install -y virtualbox-ose virtualbox-ose-kmod virtualbox-ose-additions libreoffice noto
 
 # virtualbox-ose-additions virtualbox-ose-kmod
+
+# for fcitx
+pkg remove -y ibus gnome-session
 
 #
 # install virtualbox from ports
@@ -64,7 +70,7 @@ v4l_compat qt4-assistant qt4-help qt4-clucene qt4-doc qt4-linguisttools py27-jin
 
 cd /usr/ports/emulators/virtualbox-ose && make fetch install clean
 
-# sudo pkgloop install -y gnome3-lite
+# sudo fastpkg install -y gnome3-lite
 
 #
 # for chromium
@@ -449,7 +455,7 @@ glxgears
 #########  /etc/rc.conf. GDM will be started automatic on the next reboot.
 
 #
-# xdm/gnome start on boot
+# xdm/xfce start on boot
 #
 
 cat <<'EOF'>> /etc/rc.conf
@@ -462,9 +468,13 @@ gnome_enable="NO"
 #
 EOF
 
+mv /usr/local/etc/slim.conf /usr/local/etc/slim.conf.$$
+
+cp /usr/local/etc/slim.conf.sample /usr/local/etc/slim.conf
+
 cat <<'EOF' >> /usr/local/etc/slim.conf
 #
-default_user    rhinofly
+default_user    david
 focus_password    yes
 #
 #
@@ -514,11 +524,11 @@ EOF
 
 echo 'rm -rf /tmp/.vbox-*-ipc' >> /etc/rc.local
 
-pw groupmod vboxusers -m rhinofly
-pw groupmod operator -m rhinofly
-pw groupmod wheel -m rhinofly
-pw groupmod dialer -m rhinofly
-id rhinofly
+pw groupmod vboxusers -m david
+pw groupmod operator -m david
+pw groupmod wheel -m david
+pw groupmod dialer -m david
+id david
 
 # switch sound output device/port
 # https://forums.freebsd.org/threads/47852/
@@ -546,7 +556,7 @@ sudo sysctl -w hw.snd.default_unit=2
 # remote desktop
 #
 
-sudo pkgloop install -y xrdp-devel
+sudo fastpkg install -y xrdp-devel
 
 ### Message from xrdp-devel-0.7.0.b20130912_3,1:
 ### ==============================================================================
@@ -587,7 +597,7 @@ cat /usr/local/etc/xrdp/startwm.sh
 # remote desktop client side
 #
 
-sudo pkgloop install -y rdesktop
+sudo fastpkg install -y rdesktop
 
 cat <<'EOF' > ~/bin/xremote.sh
 #!/bin/bash
@@ -595,7 +605,7 @@ cat <<'EOF' > ~/bin/xremote.sh
 # note: use ctl+alt+enter to switch between full-screen
 #
 
-REMOTEUSER="rhinofly"
+REMOTEUSER="david"
 REMOTEPASSWORD="remotepasswd"
 REMOTEHOST="10.236.12.201"
 disp="1920x1080"
@@ -672,19 +682,19 @@ cat ${HOME}/.config/fcitx/config | grep -v '^#'
 # https://forums.freebsd.org/threads/xfce-how-to-start-xfce-in-freebsd.4627/
 
 #
-# configure for user rhinofly
+# configure for user david
 #
 # https://www.freebsd.org/doc/handbook/users-synopsis.html
 #
 
-pw usermod rhinofly -s /usr/local/bin/bash
-pw groupmod video -m rhinofly 2>/dev/null || sudo pw groupmod wheel -m rhinofly
+pw usermod david -s /usr/local/bin/bash
+pw groupmod video -m david 2>/dev/null || sudo pw groupmod wheel -m david
 
 #
-# config xfce startup as rhinofly
+# config xfce startup as david
 #
 
-su - rhinofly
+su - david
 
 # http://stackoverflow.com/questions/17846529/could-not-open-a-connection-to-your-authentication-agent
 # fix ssh-copyid: no keys found
@@ -905,7 +915,7 @@ EOF
 chmod +x ~/.xinitrc
 
 # restore xfce4 setting
-# rsync -a /home/rhinofly/.config/xfce4/ rhinofly@172.236.127.24:/home/rhinofly/.config/xfce4/ --delete
+# rsync -a /home/david/.config/xfce4/ david@172.236.127.24:/home/david/.config/xfce4/ --delete
 
 mkdir -p ${HOME}/.config/autostart/ && cp /usr/local/share/applications/fcitx.desktop  ${HOME}/.config/autostart/
 
@@ -929,7 +939,7 @@ echo 'test -x ${HOME}/.git-completion.bash && . ${HOME}/.git-completion.bash' >>
 
 # root config, install qt5 gcc 4.8
 
-pkgloop install -y qt5 qt5-qmake gcc qt5-sqldrivers-mysql qt5-sqldrivers-sqlite3 gdb
+fastpkg install -y qt5 qt5-qmake gcc qt5-sqldrivers-mysql qt5-sqldrivers-sqlite3 gdb
 
 # gdb710 for qt debug
 # fix: Dwarf Error: wrong version in compilation unit header (is 4, should be 2)
@@ -959,7 +969,7 @@ EOF
 
 
 ##
-# Go lang in rhinofly
+# Go lang in david
 #
 
 #
@@ -968,14 +978,14 @@ EOF
 cd ~ && mkdir -p ~/tmp && cd ~/tmp && axel -n 8 https://storage.googleapis.com/golang/go1.5.3.freebsd-amd64.tar.gz && \
 tar xfz go1.5.3.freebsd-amd64.tar.gz && mv go ~/bootstrap.go1.5.3.freebsd-amd64
 
-export GOROOT_BOOTSTRAP=/home/rhinofly/bootstrap.go1.5.3.freebsd-amd64
+export GOROOT_BOOTSTRAP=/home/david/bootstrap.go1.5.3.freebsd-amd64
 
 # or 1.4.3
 
 cd ~ && mkdir -p ~/tmp && cd ~/tmp && axel -n 8 https://storage.googleapis.com/golang/go1.4.3.freebsd-amd64.tar.gz && \
 tar xfz go1.4.3.freebsd-amd64.tar.gz && mv go ~/bootstrap.go1.4.3.freebsd-amd64
 
-export GOROOT_BOOTSTRAP=/home/rhinofly/bootstrap.go1.4.3.freebsd-amd64
+export GOROOT_BOOTSTRAP=/home/david/bootstrap.go1.4.3.freebsd-amd64
 
 #
 
@@ -988,11 +998,11 @@ ifi.Name=
 --- FAIL: TestInterfaces (0.00s)
     interface_test.go:75: route ip+net: invalid network interface name
 
-mkdir -p /home/rhinofly/golibs
+mkdir -p /home/david/golibs
 
 export PATH="$PATH:$HOME/go/bin"
-export GOROOT=/home/rhinofly/go
-export GOPATH=/home/rhinofly/golibs
+export GOROOT=/home/david/go
+export GOPATH=/home/david/golibs
 export CGO_ENABLED=1
 
 go env
@@ -1003,10 +1013,10 @@ GOEXE=""
 GOHOSTARCH="amd64"
 GOHOSTOS="freebsd"
 GOOS="freebsd"
-GOPATH="/home/rhinofly/golibs"
+GOPATH="/home/david/golibs"
 GORACE=""
-GOROOT="/home/rhinofly/go"
-GOTOOLDIR="/home/rhinofly/go/pkg/tool/freebsd_amd64"
+GOROOT="/home/david/go"
+GOTOOLDIR="/home/david/go/pkg/tool/freebsd_amd64"
 GO15VENDOREXPERIMENT="1"
 CC="clang"
 GOGCCFLAGS="-fPIC -m64 -pthread -fno-caret-diagnostics -Qunused-arguments -fmessage-length=0"
@@ -1022,7 +1032,7 @@ go get -v -t golang.org/x/tools/cmd/...
 go get -x -v -t github.com/visualfc/gotools
 go get -t github.com/nsf/gocode
 
-export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/qt5/:/home/rhinofly/liteide/bin"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/qt5/:/home/david/liteide/bin"
 
 # http://stackoverflow.com/questions/30709056/libpng-warning-iccp-not-recognizing-known-srgb-profile-that-has-been-edited
 
