@@ -10,13 +10,15 @@
 # TODO: check https://www.banym.de/freebsd/install-freebsd-11-on-thinkpad-t420
 #
 
+# date format: %R %a %d-%m-%Y
+
 #
 # install desktop
 #
 
 # mini X
 
-fastpkg install -y git-gui meld  pinentry-curses pinentry-tty geany jpeg-turbo xv rdesktop
+fastpkg install -y git-gui meld  pinentry-curses pinentry-tty geany jpeg-turbo xv rdesktop xpdf zh-xpdf-zhfont
 
 fastpkg install -y virt-viewer chromium firefox openjdk icedtea-web
 

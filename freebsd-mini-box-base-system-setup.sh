@@ -6,6 +6,8 @@
 # initial pkg
 #
 
+echo '127.0.0.1 pos.baidu.com' >> /etc/hosts
+
 #
 # use sh for rsync
 #
@@ -386,7 +388,7 @@ chmod +x /usr/local/sbin/pkgloop
 # xauth for X11 Forward
 
 fastpkg install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree \
-screen bind-tools pigz gtar dot2tex unzip xauth fusefs-ntfs && \
+screen bind-tools pigz gtar dot2tex unzip xauth fusefs-ntfs mtools && \
 fastpkg install -y bash-completion
 
 ln -s `which ntfs-3g` /usr/sbin/mount_ntfs-3g
