@@ -15,6 +15,9 @@ cat <<'EOF' >> /etc/rc.local
 #
 /sbin/ifconfig wlan0 txpower 30
 #
+# maybe rpi3 need txpower off
+# https://www.raspberrypi.org/forums/viewtopic.php?f=63&t=139021
+#
 
 /sbin/ifaceboot bridge0 addm re0 addm wlan0 inet 172.236.0.1/24
 

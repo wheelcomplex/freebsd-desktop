@@ -19,8 +19,8 @@ pw usermod root -s /bin/sh
 # allow wheel group sudo
 
 sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -f -y bash wget sudo rsync && ln -f /usr/local/bin/bash /bin/bash;\
-mount -t fdescfs fdesc /dev/fd && echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers &&\
-cat /usr/local/etc/sudoers|tail -n 10 && df -h
+echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers &&\
+cat /usr/local/etc/sudoers|tail -n 10 && mount -t fdescfs fdesc /dev/fd;df -h
 
 # cd /usr/ports/shells/bash && make install clean
 
@@ -387,8 +387,14 @@ chmod +x /usr/local/sbin/pkgloop
 # git included in git-gui
 # xauth for X11 Forward
 
+# for rpi2 armv6
+fastpkg install -y sudo pciutils usbutils rsync cpuflags axel git-gui wget ca_root_nss subversion pstree \
+screen bind-tools pigz gtar unzip xauth fusefs-ntfs mtools vim-lite
+
+# amd64
 fastpkg install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree \
-screen bind-tools pigz gtar dot2tex unzip xauth fusefs-ntfs mtools && \
+screen bind-tools pigz gtar dot2tex unzip xauth fusefs-ntfs mtools
+
 fastpkg install -y bash-completion
 
 ln -s `which ntfs-3g` /usr/sbin/mount_ntfs-3g
@@ -467,6 +473,15 @@ top -I -a -t -S -P
 
 cat <<EOF>> /boot/loader.conf
 #
+hint.apic.0.clock=0
+kern.hz=100
+hint.atrtc.0.clock=0
+drm.i915.enable_rc6=7
+hw.pci.do_power_nodriver=3
+#
+hint.p4tcc.0.disabled=1
+hint.acpi_throttle.0.disabled=1
+#
 aesni_load="YES"
 # wait for storage, in ms
 kern.cam.boot_delay=10000
@@ -531,6 +546,9 @@ gnome_enable="NO"
 ###%### pf_flags=""                     # additional flags for pfctl
 ###%### pflog_enable="YES"              # Set to YES to enable packet filter logging
 ###%### pflog_logfile="/var/log/pflog"  # where pflogd should store the logfile
+#
+performance_cx_lowest="Cmax"
+economy_cx_lowest="Cmax"
 #
 EOF
 
@@ -1002,10 +1020,12 @@ echo "waiting for wlan1 ..."
 for aaa in `seq 1 90`
 do
     ifconfig wlan1 | grep -q 'status: associated'
-    test $? -eq 0 && echo "connected" && ifconfig wlan1 && break
+    test $? -eq 0 && echo "connected" && break
     sleep 1
 done
+ifconfig wlan1
 dhclient wlan1
+ifconfig wlan1
 #
 #netstat -nr | grep bridge
 #

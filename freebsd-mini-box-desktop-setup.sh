@@ -928,6 +928,22 @@ chmod +x ${HOME}/.git-completion.bash
 
 echo 'test -x ${HOME}/.git-completion.bash && . ${HOME}/.git-completion.bash' >> ${HOME}//.env-all
 
+
+### bluetooth
+# 
+# ugen0.2: <vendor 0x0a12 CSR8510 A10> at usbus0
+# ubt0 on uhub0
+# ubt0: <vendor 0x0a12 CSR8510 A10, class 224/1, rev 2.00/88.91, addr 5> on usbus0
+# WARNING: attempt to domain_add(bluetooth) after domainfinalize()
+# WARNING: attempt to domain_add(netgraph) after domainfinalize()
+# 
+
+test ! -f /etc/bluetooth/ubt0.conf && cp /etc/defaults/bluetooth.device.conf /etc/bluetooth/ubt0.conf
+
+service bluetooth start ubt0
+
+# I hate bluetooth, LOL
+
 #
 #
 # done =-========================
