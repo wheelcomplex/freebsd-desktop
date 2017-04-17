@@ -22,6 +22,11 @@ fastpkg install -y git-gui meld  pinentry-curses pinentry-tty geany jpeg-turbo x
 
 fastpkg install -y virt-viewer chromium firefox openjdk icedtea-web
 
+# for aarch64
+allxfce4=`export ABI=FreeBSD:11:aarch64;pkg search xfce | grep '^xfce' | awk '{print $1}'`;
+fastpkg install -y git-gui meld  pinentry-curses pinentry-tty geany jpeg-turbo xv rdesktop xpdf zh-xpdf-zhfont virt-viewer firefox $allxfce4
+
+
 # for armv6 rpi2
 # fastpkg install -y git-gui meld pinentry-curses pinentry-tty geany jpeg-turbo xv
 
@@ -46,7 +51,7 @@ pkgloop install -y virtualbox-ose virtualbox-ose-kmod virtualbox-ose-additions l
 # virtualbox-ose-additions virtualbox-ose-kmod
 
 # for fcitx
-pkg remove -y ibus gnome-session
+fastpkg remove -y ibus gnome-session
 
 #
 # install virtualbox from ports

@@ -18,8 +18,11 @@ pw usermod root -s /bin/sh
 
 # allow wheel group sudo
 
-sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -f -y bash wget sudo rsync && ln -f /usr/local/bin/bash /bin/bash;\
-echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers &&\
+# for aarch64 in FreeBSD 12: export ABI=FreeBSD:11:aarch64; sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f'; echo "ABI = "FreeBSD:11:aarch64";" >> /usr/local/etc/pkg.conf
+# http://www.raspbsd.org/raspberrypi.html https://wiki.freebsd.org/arm64/rpi3
+
+sh -c 'ASSUME_ALWAYS_YES=yes pkg bootstrap -f' && pkg install -f -y bash wget sudo rsync && ln -f /usr/local/bin/bash /bin/bash; \
+echo '%wheel ALL=(ALL) ALL' >> /usr/local/etc/sudoers && \
 cat /usr/local/etc/sudoers|tail -n 10 && mount -t fdescfs fdesc /dev/fd;df -h
 
 # cd /usr/ports/shells/bash && make install clean
@@ -391,6 +394,10 @@ chmod +x /usr/local/sbin/pkgloop
 fastpkg install -y sudo pciutils usbutils rsync cpuflags axel git-gui wget ca_root_nss subversion pstree \
 screen bind-tools pigz gtar unzip xauth fusefs-ntfs mtools vim-lite
 
+# for rpi3 aarch64 FreeBSD 12
+fastpkg install -y sudo pciutils usbutils rsync cpuflags axel git-gui wget ca_root_nss subversion pstree \
+screen bind-tools pigz gtar unzip xauth mtools vim-lite
+
 # amd64
 fastpkg install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree \
 screen bind-tools pigz gtar dot2tex unzip xauth fusefs-ntfs mtools
@@ -514,7 +521,7 @@ cat /boot/loader.conf
 cat <<'EOF' >> /etc/rc.conf
 # kernel modules
 # if_iwm for intel 3165 wifi/Intel Corporation Wireless 7265 (rev 61)
-kld_list="if_iwm geom_uzip if_bridge bridgestp fdescfs linux linprocfs wlan_xauth snd_driver coretemp vboxdrv"
+kld_list="wlan wlan_xauth wlan_ccmp wlan_tkip wlan_acl wlan_amrr wlan_rssadapt if_rtwn if_rtwn_usb if_iwm geom_uzip if_bridge bridgestp fdescfs linux linprocfs snd_driver coretemp vboxdrv"
 #
 sshd_enable="YES"
 moused_enable="YES"
@@ -595,6 +602,19 @@ linproc /compat/linux/proc linprocfs rw,late 0 0
 #
 EOF
 
+# for arm*
+cat <<EOF>> /etc/fstab
+# for bash
+fdesc /dev/fd fdescfs rw,late 0 0
+proc /proc procfs rw,late 0 0
+
+# for linux
+# linproc /compat/linux/proc linprocfs rw,late 0 0
+#
+EOF
+
+cat /etc/fstab
+
 # TODO: PPPoE/ADSL WAN link
 
 #
@@ -649,7 +669,7 @@ if_creator(){
         return $?
     ;;
     wlan[0-9]*)
-        # ifconfig wlan0 create wlandev ath0
+        # ifconfig wlan0 create wlandev rtwn0
         echo "$@" | grep -q 'wlanmode hostap'
         if [ $? -eq 0 ]
             then
@@ -864,6 +884,10 @@ server=8.8.4.4
 # server=8.8.8.8
 # server=/google.com/8.8.8.8
 
+# blacklist: baidu.com
+address=/.baidu.com/127.0.0.1
+address=/.baidustatic.com/127.0.0.1
+
 all-servers
 
 #
@@ -871,7 +895,7 @@ log-queries
 #
 # enable dhcp server
 #
-# dhcp-range=172.16.0.51,172.16.0.90,2400h
+# dhcp-range=172.16.0.91,172.16.0.110,2400h
 #
 #
 log-dhcp
@@ -956,6 +980,61 @@ sleep 1 && tail -n 20 /var/log/messages
 
 #### ------------------------
 
+
+## wpa2-psk wifi client
+# for open wifi: ifconfig wlan0 ssid xxxx && dhclient wlan0
+
+cp /etc/wpa_supplicant.conf /etc/wpa_supplicant.conf.dist.$$
+
+cat <<'EOF' >/etc/wpa_supplicant.conf
+#####wpa_supplicant configuration file ###############################
+#
+update_config=0
+
+#
+#ctrl_interface=/var/run/wpa_supplicant
+
+#eapol_version=1
+
+ap_scan=1
+
+#fast_reauth=1
+
+# Simple case: WPA-PSK, PSK as an ASCII passphrase, allow all valid ciphers
+network={
+    #ssid="aluminium-136"
+    #psk="13609009086"
+    ssid="Xiaomi_0800"
+    psk="meiyoumimaa"
+    scan_ssid=1
+    key_mgmt=WPA-PSK
+    proto=RSN
+    pairwise=CCMP TKIP
+    group=CCMP TKIP
+    priority=5
+}
+#
+EOF
+
+#
+# debug
+#
+
+dmesg | grep -C 5 -i RF
+dmesg | grep -C 5 -i Wireless
+
+# for wifi client
+/sbin/ifaceboot wlan1 run0 wlanmode sta up
+
+# list ssid
+ifconfig wlan1 scan;sleep 3;ifconfig wlan1 scan;
+
+/usr/sbin/wpa_supplicant -d -i wlan1 -c /etc/wpa_supplicant.conf
+
+# on boot startup
+# check /etc/rc.local
+#
+
 # create
 test -f /etc/rc.local && mv /etc/rc.local /etc/rc.local.orig.$$
 
@@ -963,9 +1042,14 @@ test -f /etc/rc.local && mv /etc/rc.local /etc/rc.local.orig.$$
 
 cat <<'EOF' >> /etc/rc.local
 #!/bin/sh
-LAN_ADDR="172.16.0.1/24"
-WAN_GW="172.16.0.2"
+LAN_ADDR="172.16.0.5/24"
+# WAN_GW="172.16.0.2"
+WANWIFI="run0"
+LANWIFI="rtwn0"
 
+LANCMD="/sbin/ifaceboot bridge0 addm ue0 addm ue1 addm re0 addm re1 addm am0 addm am1 addm wlan0 inet $LAN_ADDR"
+
+# sleep to prevent panic
 killall wpa_supplicant
 sleep 1
 killall hostapd
@@ -979,7 +1063,7 @@ ifconfig bridge0 destroy
 #
 if [ "$1" = "stop" ]
 then
-    /sbin/ifaceboot bridge0 addm re0 addm re1 addm am0 addm am1 addm wlan0 inet $LAN_ADDR
+    $LANCMD
     test -n "$WAN_GW" && route add -net 0/0 $WAN_GW
     ifconfig
     netstat -nr
@@ -987,10 +1071,9 @@ then
 fi
 
 # fix network interface configure in rc.conf
-/sbin/ifaceboot wlan0 ath0 wlanmode hostap up
+/sbin/ifaceboot wlan0 $LANWIFI wlanmode hostap up
 sleep 1
-/sbin/ifaceboot wlan1 run0 wlanmode sta up
-#/sbin/ifaceboot wlan1 rtwn0 wlanmode sta up
+/sbin/ifaceboot wlan1 $WANWIFI wlanmode sta up
 sleep 1
 #
 /sbin/ifconfig wlan0 txpower 30
@@ -999,7 +1082,7 @@ sleep 1
 /sbin/ifconfig wlan0 up 
 /sbin/ifconfig wlan1 up 
 #
-/sbin/ifaceboot bridge0 addm re0 addm re1 addm am0 addm am1 addm wlan0 inet $LAN_ADDR
+$LANCMD
 test -n "$WAN_GW" && route add -net 0/0 $WAN_GW
 
 # load xauth or you will failed
@@ -1011,8 +1094,6 @@ sleep 5
 rm -f /var/run/hostapd/wlan0
 /etc/rc.d/hostapd onestart
 #
-
-#route add -net 0/0 192.168.31.1
 
 /usr/sbin/wpa_supplicant -B -i wlan1 -c /etc/wpa_supplicant.conf
 echo ""
@@ -1230,60 +1311,6 @@ sleep 1
 service dnsmasq restart
 # launch chrome --proxy-server=socks5://127.0.0.1:8080
 EOF
-
-## wpa2-psk wifi client
-# for open wifi: ifconfig wlan0 ssid xxxx && dhclient wlan0
-
-cp /etc/wpa_supplicant.conf /etc/wpa_supplicant.conf.dist.$$
-
-cat <<'EOF' >/etc/wpa_supplicant.conf
-#####wpa_supplicant configuration file ###############################
-#
-update_config=0
-
-#
-#ctrl_interface=/var/run/wpa_supplicant
-
-#eapol_version=1
-
-ap_scan=1
-
-#fast_reauth=1
-
-# Simple case: WPA-PSK, PSK as an ASCII passphrase, allow all valid ciphers
-network={
-    ssid="aluminium-136"
-    psk="13609009086"
-    #ssid="Xiaomi_0800"
-    #psk="meiyoumimaa"
-    scan_ssid=1
-    key_mgmt=WPA-PSK
-    proto=RSN
-    pairwise=CCMP TKIP
-    group=CCMP TKIP
-    priority=5
-}
-#
-EOF
-
-#
-# debug
-#
-
-dmesg | grep -C 5 -i RF
-dmesg | grep -C 5 -i Wireless
-
-# for wifi client
-/sbin/ifaceboot wlan1 iwm0 wlanmode sta up
-
-# list ssid
-ifconfig wlan1 scan;sleep 3;ifconfig wlan1 scan;
-
-/usr/sbin/wpa_supplicant -d -i wlan1 -c /etc/wpa_supplicant.conf
-
-# on boot startup
-# check /etc/rc.local
-#
 
 # ssh remote forward
 # https://help.ubuntu.com/community/SSH/OpenSSH/PortForwarding
