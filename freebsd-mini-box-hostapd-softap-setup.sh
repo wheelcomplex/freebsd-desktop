@@ -29,6 +29,13 @@ server=8.8.4.4
 address=/.baidu.com/127.0.0.1
 address=/.baidustatic.com/127.0.0.1
 
+# line 1 returns 198.51.100.100 for the host vpn.example.org.
+# line 2 specifies 192.168.1.1 as the upstream DNS server for all other example.org queries such as admin.example.org.
+# address=/vpn.example.org/198.51.100.100
+# server=/example.org/192.168.1.1
+server=/libs.baidu.com/8.8.8.8
+server=/developer.baidu.com/8.8.8.8
+
 all-servers
 
 #
@@ -36,7 +43,7 @@ log-queries
 #
 # enable dhcp server
 #
-# dhcp-range=172.16.0.91,172.16.0.110,2400h
+dhcp-range=172.16.0.91,172.16.0.110,2400h
 #
 #
 log-dhcp
@@ -514,11 +521,11 @@ chmod +x /etc/rc.local
 #
 
 # for proxy and cache
-pkg install -y nginx
+fastpkg install -y nginx
 
-mkdir -p /usr/share/nginx/html/ /var/log/nginx /usr/local/etc/nginx/conf.d/
+mkdir -p /home/appdata/nginx/htdocs/ /var/log/nginx /usr/local/etc/nginx/conf.d/
 
-test ! -f /usr/share/nginx/html/robots.txt && cat <<'EOF'>/usr/share/nginx/html/robots.txt
+test ! -f /home/appdata/nginx/htdocs/robots.txt && cat <<'EOF'>/home/appdata/nginx/htdocs/robots.txt
 Disallow: /
 EOF
 
@@ -677,7 +684,7 @@ http {
             proxy_cache autocache;
             proxy_cache_key $scheme$http_host$request_uri$is_args$args;
             # proxy_cache_valid 200 14d;
-            proxy_cache_valid 200 14d;
+            proxy_cache_valid 200 120m;
             proxy_cache_valid 301 302 2m;
             proxy_cache_use_stale updating;
             proxy_cache_valid 404 10s;
@@ -722,7 +729,7 @@ EOF
 
 tail -f /var/log/nginx/access.log /var/log/nginx/error.log &
 
-# dd if=/dev/zero of=/home/rhinofly/nginx-www/x.iso bs=1M count=4096
+# truncate -s 4G /home/appdata/nginx/htdocs/x4.iso
 
 http_proxy='' wget -S http://localhost/localfiles/ -O -
 
