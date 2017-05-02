@@ -38,6 +38,9 @@ server=/developer.baidu.com/8.8.8.8
 
 all-servers
 
+# for independ from syslog
+log-facility=/var/log/dnsmasq.log
+
 #
 log-queries
 #
@@ -302,7 +305,7 @@ cat <<'EOF' > /etc/pf.conf
 #------------------------------------------------------------------------
 #
 # interfaces
-ext_if  = "wlan1"
+ext_if  = "wlan0"
 ext_vpn_if  = "ng0"
 lan_if = "bridge0"
 
@@ -380,12 +383,14 @@ echo ""
 errcode=0
 if [ "$1" = "stop" -o "$1" = "start" ]
 then
+    sysctl -w net.inet.ip.forwarding=0
     pfctl -F nat && pfctl -F queue && pfctl -F rules
     errcode=$?
     sleep 1 
 fi
 if [ "$1" = "start" ]
 then
+    sysctl -w net.inet.ip.forwarding=1
     pfctl -f /etc/pf.conf
     errcode=$?
     sleep 1 
@@ -420,6 +425,32 @@ chmod +x /usr/sbin/pfsess
 #              -F all        Flush all of the above.
 # 
 
+cat <<'EOF' > /sbin/liverootfs.sh
+#!/bin/sh
+rootds=`mount | grep " on / (zfs,"| tail -n 1| awk '{print $1}'`
+if [ -z "$rootds" ]
+then
+    echo "error: root dataset not found"
+    mount
+    exit 1
+fi
+zfs destroy -r $rootds@-live- 2>/dev/null
+umount -f /mnt/liverootfs 2>/dev/null
+zfs snapshot $rootds@-live- && mkdir -p /mnt/liverootfs && \
+mount -t zfs -o ro $rootds@-live- /mnt/liverootfs
+if [ $? -ne 0 ]
+then
+    echo "error: mount -t zfs -o ro $rootds@-live- /mnt/liverootfs failed"
+    exit 1
+fi
+mount | grep -- " on / (zfs,"
+mount | grep -- "$rootds@-live-"
+exit 0
+#
+EOF
+
+chmod +x /sbin/liverootfs.sh
+
 # start on boot
 
 test -f /etc/rc.local && mv /etc/rc.local /etc/rc.local.orig.$$
@@ -428,95 +459,269 @@ test -f /etc/rc.local && mv /etc/rc.local /etc/rc.local.orig.$$
 
 cat <<'EOF' > /etc/rc.local
 #!/bin/sh
-LAN_ADDR="172.16.0.254/24"
+
+# aarch64 bug
+test "`uname -p`" = "aarch64" && killall syslogd 2>/dev/null
+
+# mount live root
+/sbin/liverootfs.sh $@
+
+/sbin/netmgr.sh $@
+exit $?
+EOF
+
+chmod +x /etc/rc.local
+
+cat <<'EOF' > /sbin/netmgr.sh
+#!/bin/sh
+LAN_ADDRS="172.18.0.254/24 172.16.0.254/24"
+# AUTOX to skip first ether nic 
+LAN_NICS="AUTO"
 # WAN_GW="172.16.0.254"
-WANWIFI="run0"
-LANWIFI="rtwn0"
 
-LANCMD="/sbin/ifaceboot bridge0 addm ue0 addm ue1 addm re0 addm re1 addm am0 addm am1 addm wlan0 inet $LAN_ADDR"
+BRIDGEIF="bridge0"
 
-service sshd start
+# for wlan0
+WIFICLIENTIF="wlan0"
 
-# sleep to prevent panic
-killall wpa_supplicant
-sleep 1
-killall hostapd
-sleep 1
-ifconfig wlan0 destroy
-sleep 1
-ifconfig wlan1 destroy
-sleep 1
-ifconfig bridge0 destroy
-sleep 1
-service netif stop
-sleep 1
-service netif start
+WIFICLIENTNIC="rsu0"
+
+# YES to add wifi client to bridge
+CLIENTBRIDGE="NO"
 
 #
-if [ "$1" = "stop" ]
-then
-    $LANCMD
-    test -n "$WAN_GW" && route add -net 0/0 $WAN_GW
-    ifconfig
-    netstat -nr
-    exit 0
-fi
+CLIENTDHCP="YES"
 
-# fix network interface configure in rc.conf
-test -n "$LANWIFI" && /sbin/ifaceboot wlan0 $LANWIFI wlanmode hostap up && sleep 1
-test -n "$WANWIFI" && /sbin/ifaceboot wlan1 $WANWIFI wlanmode sta up && sleep 1
-#
-test -n "$LANWIFI" && /sbin/ifconfig wlan0 txpower 30
-test -n "$WANWIFI" && /sbin/ifconfig wlan1 txpower 30
-#
-test -n "$LANWIFI" && /sbin/ifconfig wlan0 up 
-test -n "$WANWIFI" && /sbin/ifconfig wlan1 up 
-#
-$LANCMD
-test -n "$WAN_GW" && route add -net 0/0 $WAN_GW && exit 0
+# for wlan1, softap
+SOFTAPIF="wlan1"
 
-# load xauth or you will failed
+SOFTAPNIC="rtwn0"
+SOFTAPNIC="run0"
 
+# load wlan kmods
 kmods="wlan wlan_xauth wlan_ccmp wlan_tkip wlan_acl wlan_amrr wlan_rssadapt"
 for onemod in $kmods
 do
     /sbin/kldload $onemod 2>/dev/null
 done
-kldstat|grep wlan
+# kldstat|grep wlan
 
-sleep 5
-killall hostapd
-sleep 1
-rm -f /var/run/hostapd/wlan0
-sleep 1
-# /etc/rc.d/hostapd onestart
-nohup /usr/sbin/hostapd -P /var/run/hostapd.pid -d /etc/hostapd.conf > /var/log/hostapd.log 2>&1 </dev/zero &
-#
-sleep 5
-test -n "$LANWIFI" && /sbin/ifconfig wlan0 up 
-test -n "$LANWIFI" && /sbin/ifconfig wlan0
-#
-
-/usr/sbin/wpa_supplicant -B -i wlan1 -c /etc/wpa_supplicant.conf
-echo ""
-echo "waiting for wlan1 ..."
-for aaa in `seq 1 90`
-do
-    ifconfig wlan1 | grep -q 'status: associated'
-    test $? -eq 0 && echo "connected" && break
+wired_reset(){
+    service sshd start
+    ifconfig $BRIDGEIF destroy 2>/dev/null
     sleep 1
-done
-ifconfig wlan1
-dhclient wlan1
-ifconfig wlan1
+    service netif stop
+    sleep 1
+    service netif start
+    #
+    local allnic=""
+    local addms=""
+    local nic=""
+    local nicflags=$LAN_NICS
+    if [ "$nicflags" = "AUTO" -o "$nicflags" = "AUTOX" ]
+    then
+        LAN_NICS=`ifconfig -a | grep ": flags=" | tr ':' ' '| awk '{print $1}'| grep -v ^lo | grep -v ^bridge| grep -v ^pf`
+    fi
+    for nic in $LAN_NICS
+    do
+        ifconfig $nic | grep -q 'ether '
+        if [ $? -ne 0 ]
+        then
+            echo "skipped non-ether device: $nic"
+            continue
+        fi
+        if [ -z "$addms" -a "$LAN_NICS" = "AUTOX" ]
+        then
+            addms="x"
+            echo "skipped first-ether device for $nicflags: $nic"
+            continue
+        fi
+        if [ -z "$addms" -o "$addms" = "x" ]
+        then
+            addms="addm $nic"
+        else
+            addms="$addms addm $nic"
+        fi
+    done
+    if [ -z "$addms" -o "$addms" = "x" ]
+    then
+        echo "warning: LAN_NICS not found or not defined($nicflags)."
+        return 0
+    fi
+    #
+    /sbin/ifaceboot $BRIDGEIF $addms
+    local addr=""
+    local alias=""
+    for addr in $LAN_ADDRS
+    do
+        /sbin/ifconfig $BRIDGEIF $addr $alias
+        alias="alias"
+    done
+    test -n "$WAN_GW" && route add -net 0/0 $WAN_GW
+    echo " ----"
+    sleep 1
+    ifconfig
+    netstat -nr
+    echo " ----"
+    echo "wired networking reseted."
+    echo " ----"
+}
+
+wifi_client(){
+    local arg1="$1"
+    local code=0
+    # sleep to prevent panic
+    killall wpa_supplicant 2>/dev/null
+    sleep 1
+    ifconfig $WIFICLIENTIF destroy 2>/dev/null
+    sleep 1
+    if [ "$arg1" = "stop" ]
+    then
+        return $?
+    fi
+    test -z "$WIFICLIENTNIC" && echo "device for wifi client (WIFICLIENTNIC) not defined" && return 0
+    /sbin/ifaceboot $WIFICLIENTIF $WIFICLIENTNIC wlanmode sta up
+    /sbin/ifconfig $WIFICLIENTIF >/dev/null 2>&1
+    test $? -ne 0 && echo "FAILED: $WIFICLIENTIF $WIFICLIENTNIC wlanmode sta up" && return 1
+    sleep 1 && /sbin/ifconfig $WIFICLIENTIF txpower 30
+    /sbin/ifconfig $WIFICLIENTIF up
+    sleep 1
+    /usr/sbin/wpa_supplicant -B -i $WIFICLIENTIF -c /etc/wpa_supplicant.conf
+    echo ""
+    echo "waiting for $WIFICLIENTIF(90 seconds) ..."
+    for aaa in `seq 1 90`
+    do
+        ifconfig $WIFICLIENTIF | grep -q 'status: associated'
+        test $? -eq 0 && break
+        sleep 1
+    done
+    echo " ----"
+    echo -n "WIFI CLIENT CONNECTED: " && ifconfig $WIFICLIENTIF | grep "ssid "
+    echo " ----"
+    ifconfig $WIFICLIENTIF
+    if [ "$CLIENTBRIDGE" = "YES" ]
+    then
+        sleep 1
+        /sbin/ifconfig $WIFICLIENTIF up 
+        sleep 3
+        /sbin/ifconfig $BRIDGEIF addm $WIFICLIENTIF
+        sleep 1
+        if [ "$CLIENTDHCP" = "YES" ]
+        then
+            dhclient $BRIDGEIF
+        fi
+    else
+        if [ "$CLIENTDHCP" = "YES" ]
+        then
+            dhclient $WIFICLIENTIF
+        fi
+    fi
+    #
+    /sbin/ifconfig $WIFICLIENTIF
+    /sbin/ifconfig $BRIDGEIF
+    service dnsmasq restart
+    netstat -nr
+    #
+    /usr/sbin/pfsess start > /dev/null
+    #
+    return $?
+}
+
+soft_ap(){
+    local arg1="$1"
+    local code=0
+    cat /etc/hostapd.conf 2>/dev/null| grep -v '^#'|grep -q "^interface=$SOFTAPIF"
+    if [ $? -ne 0 ]
+    then
+        echo "----"
+        echo "error: interface=$SOFTAPIF not defined in /etc/hostapd.conf."
+        echo -n "current define: " && cat /etc/hostapd.conf 2>/dev/null| grep -v '^#'|grep "^interface=$SOFTAPIF"
+        echo "----"
+        return 1
+    fi
+    killall hostapd 2>/dev/null
+    # sleep to prevent panic
+    sleep 1
+    ifconfig $SOFTAPIF destroy 2>/dev/null
+    sleep 1
+    if [ "$arg1" = "stop" ]
+    then
+        return $?
+    fi
+    test -z "$SOFTAPNIC" && echo "device for softap (SOFTAPNIC) not defined" && return 0
+    /sbin/ifaceboot $SOFTAPIF $SOFTAPNIC wlanmode hostap
+    /sbin/ifconfig $SOFTAPIF >/dev/null 2>&1
+    test $? -ne 0 && echo "FAILED: $SOFTAPIF $SOFTAPNIC wlanmode hostap" && return 1
+    sleep 1 && /sbin/ifconfig $SOFTAPIF txpower 30
+    /sbin/ifconfig $SOFTAPIF up
+    sleep 1
+    rm -f /var/run/hostapd/$SOFTAPIF
+    sleep 1
+    # /etc/rc.d/hostapd onestart
+    nohup /usr/sbin/hostapd -P /var/run/hostapd.pid -d /etc/hostapd.conf > /var/log/hostapd.log 2>&1 </dev/zero &
+    #
+    sleep 1
+    /sbin/ifconfig $SOFTAPIF up 
+    sleep 3
+    /sbin/ifconfig $SOFTAPIF
+    /sbin/ifconfig $BRIDGEIF addm $SOFTAPIF
+    echo "waiting for $SOFTAPIF(15 seconds) ..."
+    for aaa in `seq 1 15`
+    do
+        ifconfig $SOFTAPIF | grep -v 'ssid ""'|grep -q 'ssid '
+        test $? -eq 0 && break
+        sleep 1
+    done
+    echo " ----"
+    echo -n "SOFT AP: " && ifconfig $SOFTAPIF | grep "ssid "
+    echo " ----"
+    /sbin/ifconfig $SOFTAPIF
+    /sbin/ifconfig $BRIDGEIF
+    return $code
+}
+
+if [ -z "$1" ]
+then
+    wired_reset start
+    soft_ap start
+    wifi_client start
+    exit $?
+fi
+
+if [ "$1" = "stop" ]
+then
+    soft_ap stop
+    wifi_client stop
+    wired_reset stop
+    exit $?
+fi
+
+if [ "$1" = "softap" ]
+then
+    if [ "$2" = "stop" ]
+    then
+        soft_ap stop
+        exit 0
+    fi
+    soft_ap start
+    exit $?
+fi
+
+if [ "$1" = "wificlient" ]
+then
+    if [ "$2" = "stop" ]
+    then
+        wifi_client stop
+        exit 0
+    fi
+    wifi_client start
+    exit $?
+fi
 #
-#netstat -nr | grep bridge
-#
-/usr/sbin/pfsess start > /dev/null
-#
+
 EOF
 
-chmod +x /etc/rc.local
+chmod +x /sbin/netmgr.sh
 
 #
 
@@ -729,7 +934,7 @@ EOF
 
 tail -f /var/log/nginx/access.log /var/log/nginx/error.log &
 
-# truncate -s 4G /home/appdata/nginx/htdocs/x4.iso
+# truncate -s 4G /home/appdata/nginx/htdocs/localfiles/x4.iso
 
 http_proxy='' wget -S http://localhost/localfiles/ -O -
 

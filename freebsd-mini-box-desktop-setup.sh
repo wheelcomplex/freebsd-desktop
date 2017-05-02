@@ -531,6 +531,9 @@ EOF
 
 echo 'rm -rf /tmp/.vbox-*-ipc' >> /etc/rc.local
 
+# video for libGL error: failed to open drm device: Permission denied
+pw groupmod video -m david
+
 pw groupmod vboxusers -m david
 pw groupmod operator -m david
 pw groupmod wheel -m david

@@ -279,7 +279,7 @@ then
     exit $?
 fi
 act="$1"
-if [ "$act" != 'install' -a "$act" != 'fetch' ]
+if [ "$act" != 'install' -a "$act" != 'fetch'  -a "$act" != 'upgrade' ]
 then
     pkg $@
     exit $?
@@ -293,7 +293,7 @@ target="$@"
 echo "fast pkg ${act}ing $target ..."
 
 tmpfile="/tmp/fastpkg.$$.list"
-echo "n" | pkg install $target > $tmpfile 2>&1
+echo "n" | pkg $act $target > $tmpfile 2>&1
 
 list=`cat $tmpfile | grep -A 1000 "to be INSTALLED:"| grep -v "to be INSTALLED:"| grep -v 'Installed packages'| grep -v "The process will"|grep -v "to be downloaded."| grep -v "Proceed with this action"| grep -v 'ABI changed'| grep -v 'Number of packages to be'|awk -F': ' '{print $1}'| grep -v '^$'|awk '{print $1}'`;
 dlinfo=`cat $tmpfile |grep "to be downloaded."`
@@ -347,7 +347,12 @@ then
     echo ""
     exit 0
 fi
-pkg install -y $target
+if [ "$act" = "install" ]
+then
+    pkg install -y $target
+    exit $?
+fi
+pkg $act -y
 exit $?
 #
 EOF
