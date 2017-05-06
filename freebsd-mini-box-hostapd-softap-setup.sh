@@ -486,6 +486,8 @@ WIFICLIENTIF="wlan0"
 
 WIFICLIENTNIC="rsu0"
 
+CLIENTADDRS="LAN"
+
 # YES to add wifi client to bridge
 CLIENTBRIDGE="NO"
 
@@ -498,6 +500,8 @@ SOFTAPIF="wlan1"
 SOFTAPNIC="rtwn0"
 SOFTAPNIC="run0"
 
+#############
+
 # load wlan kmods
 kmods="wlan wlan_xauth wlan_ccmp wlan_tkip wlan_acl wlan_amrr wlan_rssadapt"
 for onemod in $kmods
@@ -505,6 +509,23 @@ do
     /sbin/kldload $onemod 2>/dev/null
 done
 # kldstat|grep wlan
+
+if [ "$CLIENTADDRS" = "LAN" ]
+then
+    CLIENTADDRS=$LAN_ADDRS
+    echo "WARNING: using LAN ADDRS in wificlient: $CLIENTADDRS"
+    sleep 2
+fi
+
+if [ -n "$CLIENTADDRS" ]
+then
+    CLIENTADDRS=$LAN_ADDRS
+    LAN_ADDRS=""
+    CLIENTDHCP=NO
+    CLIENTBRIDGE=NO
+    echo "WARNING: wificlient address: $CLIENTADDRS"
+    sleep 2
+fi
 
 wired_reset(){
     service sshd start
@@ -554,7 +575,7 @@ wired_reset(){
     local alias=""
     for addr in $LAN_ADDRS
     do
-        /sbin/ifconfig $BRIDGEIF $addr $alias
+        /sbin/ifconfig $BRIDGEIF inet $addr $alias
         alias="alias"
     done
     test -n "$WAN_GW" && route add -net 0/0 $WAN_GW
@@ -599,7 +620,18 @@ wifi_client(){
     echo -n "WIFI CLIENT CONNECTED: " && ifconfig $WIFICLIENTIF | grep "ssid "
     echo " ----"
     ifconfig $WIFICLIENTIF
-    if [ "$CLIENTBRIDGE" = "YES" ]
+    if [ -n "$CLIENTADDRS" ]
+    then
+        local addr=""
+        local alias=""
+        for addr in $CLIENTADDRS
+        do
+            /sbin/ifconfig $WIFICLIENTIF inet $addr $alias
+            alias="alias"
+        done
+        test -n "$WAN_GW" && route add -net 0/0 $WAN_GW
+        echo " ----"
+    elif [ "$CLIENTBRIDGE" = "YES" ]
     then
         sleep 1
         /sbin/ifconfig $WIFICLIENTIF up 
@@ -617,6 +649,7 @@ wifi_client(){
         fi
     fi
     #
+    /sbin/ifconfig $WIFICLIENTIF up
     /sbin/ifconfig $WIFICLIENTIF
     /sbin/ifconfig $BRIDGEIF
     service dnsmasq restart
