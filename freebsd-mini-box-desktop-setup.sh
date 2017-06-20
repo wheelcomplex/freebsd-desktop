@@ -18,7 +18,9 @@
 
 # mini X
 
-fastpkg install -y git-gui meld  pinentry-curses pinentry-tty geany jpeg-turbo xv rdesktop xpdf zh-xpdf-zhfont
+fastpkg install -y git-gui meld  pinentry-curses pinentry-tty geany jpeg-turbo xv rdesktop xpdf zh-xpdf-zhfont gnome-screenshot
+
+# http://www.pc-freak.net/blog/how-to-take-area-screenshots-in-gnome-take-quick-area-selection-screenshots-in-g-linux-and-bsd/
 
 fastpkg install -y virt-viewer chromium firefox openjdk icedtea-web
 

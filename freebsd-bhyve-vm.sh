@@ -36,6 +36,9 @@ vm iso http://ftp.freebsd.org/pub/FreeBSD/snapshots/ISO-IMAGES/12.0/FreeBSD-12.0
 # https://github.com/churchers/vm-bhyve/wiki/UEFI-Graphics-(VNC)
 #
 
+kldload nmdm 
+kldload vmm 
+
 cat <<'EOF' > /home/backvm/.templates/freebsd12amd64.conf
 graphics="yes"
 graphics_res="1280x720"

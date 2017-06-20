@@ -35,6 +35,12 @@ address=/.baidustatic.com/127.0.0.1
 # server=/example.org/192.168.1.1
 server=/libs.baidu.com/8.8.8.8
 server=/developer.baidu.com/8.8.8.8
+server=/pan.baidu.com/8.8.8.8
+server=/yun.baidu.com/8.8.8.8
+server=/pcs.baidu.com/8.8.8.8
+server=/pcsdata.baidu.com/8.8.8.8
+server=/passport.baidu.com/8.8.8.8
+server=/wappass.baidu.com/8.8.8.8
 
 all-servers
 

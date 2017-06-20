@@ -526,7 +526,7 @@ cat /boot/loader.conf
 cat <<'EOF' >> /etc/rc.conf
 # kernel modules
 # if_iwm for intel 3165 wifi/Intel Corporation Wireless 7265 (rev 61)
-kld_list="wlan wlan_xauth wlan_ccmp wlan_tkip wlan_acl wlan_amrr wlan_rssadapt if_rtwn if_rtwn_usb if_iwm geom_uzip if_bridge bridgestp fdescfs linux linprocfs snd_driver coretemp vboxdrv"
+kld_list="nmdm vmm wlan wlan_xauth wlan_ccmp wlan_tkip wlan_acl wlan_amrr wlan_rssadapt if_rtwn if_rtwn_usb if_iwm geom_uzip if_bridge bridgestp fdescfs linux linprocfs snd_driver coretemp vboxdrv"
 #
 sshd_enable="YES"
 moused_enable="YES"
