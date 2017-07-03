@@ -955,6 +955,7 @@ http {
             add_header NGProxy-Status AUTOPROXY always;
         }
     }
+    include /usr/local/etc/nginx/conf.d/*.conf;
 }
 #
 EOF

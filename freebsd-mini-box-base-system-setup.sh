@@ -1255,6 +1255,225 @@ echo 'net.inet.ip.portrange.reservedhigh=1023' >> /etc/sysctl.conf
 
 #
 
+# seafile-server in http
+# https://manual.seafile.com/deploy/using_sqlite.html
+# https://manual.seafile.com/build_seafile/freebsd.html
+# https://thebluber.wordpress.com/2015/04/21/install-seafile-server-seahub-on-freebsd/
+
+# install by root
+
+pkg search seafile
+
+sudo pkg install -y seafile-client seafile-gui seafile-server seahub
+
+ls -alh /usr/local/www/haiwen/seafile-server/
+
+mkdir -p /home/david/ds/nzhomeseafile/seafile-data
+
+# run by root for ccnet
+
+sudo /usr/local/www/haiwen/seafile-server/setup-seafile.sh
+
+# rhinofly@s1:~/palfish/seafile-server-6.0.9$ ./setup-seafile.sh 
+# -----------------------------------------------------------------
+# This is your config information:
+# 
+# server name:        nzhome
+# server ip/domain:   nzhome.cloud.newhamlet.com
+# seafile data dir:   /home/david/ds/nzhomeseafile/seafile-data
+# fileserver port:    8082
+# 
+# If you are OK with the configuration, press [ENTER] to continue.
+# 
+# Generating ccnet configuration in /usr/local/www/haiwen/ccnet...
+# 
+# done
+# Successly create configuration dir /usr/local/www/haiwen/ccnet.
+# 
+# Generating seafile configuration in /home/david/ds/nzhomeseafile/seafile-data ...
+# 
+# Done.
+# 
+# -----------------------------------------------------------------
+# Seahub is the web interface for seafile server.
+# Now let's setup seahub configuration. Press [ENTER] to continue
+# -----------------------------------------------------------------
+# 
+# creating seafile-server-latest symbolic link ... done
+# 
+# 
+# -----------------------------------------------------------------
+# Your seafile server configuration has been completed successfully.
+# -----------------------------------------------------------------
+# 
+# run seafile server:     sysrc seafile_enable=YES
+#                         service seafile { start | stop | restart }
+# run seahub  server:     sysrc seahub_enable=YES
+# fastcgi (optional):     sysrc seahub_fastcgi=1
+#                         service seahub { start | stop | restart }
+# run reset-admin:        ./reset-admin.sh
+# 
+# -----------------------------------------------------------------
+# If the server is behind a firewall, remember to open these tcp ports:
+# -----------------------------------------------------------------
+# 
+# port of seafile fileserver:   8082
+# port of seahub:               8000
+# 
+# When problems occur, refer to
+# 
+#       https://github.com/haiwen/seafile/wiki
+# 
+# for more information.
+# 
+
+### use fast-cgi server with nginx
+sudo sysrc seafile_enable=YES
+sudo sysrc seahub_enable=YES
+sudo sysrc seahub_fastcgi=YES
+
+cat <<'EOF'> /tmp/nzhome.cloud.newhamlet.com.conf
+server {
+    # http server
+    listen 8001;
+    
+    server_name nzhome.cloud.newhamlet.com;
+
+    charset utf-8;
+
+    access_log  /var/log/nginx/http.nzhome.cloud.newhamlet.com.access.log  main;
+    error_log       /var/log/nginx/nzhome.seahub.error.log;
+
+    root /usr/local/empty;
+    index index.html;
+
+    # deny access to .htaccess files, if Apache's document root
+    # concurs with nginx's one
+    #
+    location ~ /\.ht {
+        deny  all;
+    }
+    location ^~ /data/ {
+        deny  all;
+    }
+    
+    proxy_set_header X-Forwarded-For $remote_addr;
+
+    server_tokens off;
+    
+    location / {
+            fastcgi_pass    127.0.0.1:8000;
+            fastcgi_param   SCRIPT_FILENAME     $document_root$fastcgi_script_name;
+            fastcgi_param   PATH_INFO           $fastcgi_script_name;
+
+            fastcgi_param   SERVER_PROTOCOL        $server_protocol;
+            fastcgi_param   QUERY_STRING        $query_string;
+            fastcgi_param   REQUEST_METHOD      $request_method;
+            fastcgi_param   CONTENT_TYPE        $content_type;
+            fastcgi_param   CONTENT_LENGTH      $content_length;
+            fastcgi_param   SERVER_ADDR         $server_addr;
+            fastcgi_param   SERVER_PORT         $server_port;
+            fastcgi_param   SERVER_NAME         $server_name;
+            fastcgi_param   REMOTE_ADDR         $remote_addr;
+            #fastcgi_param   HTTPS               on;
+            #fastcgi_param   HTTP_SCHEME         https;
+
+            fastcgi_read_timeout 36000;
+            client_max_body_size 0;
+    }
+    location /seafhttp {
+        rewrite ^/seafhttp(.*)$ $1 break;
+        proxy_pass http://127.0.0.1:8082;
+        client_max_body_size 0;
+        proxy_connect_timeout  36000s;
+        proxy_read_timeout  36000s;
+        proxy_send_timeout  36000s;
+        send_timeout  36000s;
+    }
+    location /media {
+        root /usr/local/www/haiwen/seafile-server-latest/seahub;
+    }
+}
+EOF
+
+sudo cp /tmp/nzhome.cloud.newhamlet.com.conf /usr/local/etc/nginx/conf.d/nzhome.cloud.newhamlet.com.conf
+
+sudo service nginx restart
+
+sockstat -l -4| grep 8001
+
+service seafile start
+service seahub start
+
+# access
+http://nzhome.cloud.newhamlet.com:8001
+
+# server config
+# https://manual-cn.seafile.com/config/
+
+cd /home/david/ds/nzhomeseafile/
+
+# NOTE: appending
+cat <<'EOF' >>/usr/local/www/haiwen/conf/seahub_settings.py
+# email notify
+EMAIL_USE_TLS = False
+EMAIL_HOST = '127.0.0.1'
+EMAIL_HOST_USER = 'seafile-notify@nzhome.cloud.newhamlet.com'
+# no auth
+EMAIL_HOST_PASSWORD = ''
+EMAIL_PORT = '25'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+SERVER_EMAIL = EMAIL_HOST_USER
+#
+FILE_SERVER_ROOT = 'http://nzhome.cloud.newhamlet.com/seafhttp'
+#
+# Enalbe or disalbe registration on web. Default is `False`.
+ENABLE_SIGNUP = True
+
+# Activate or deactivate user when registration complete. Default is `True`.
+# If set to `False`, new users need to be activated by admin in admin panel.
+ACTIVATE_AFTER_REGISTRATION = False
+
+# Whether to send email when a system admin adding a new member. Default is `True`.
+# NOTE: since version 1.4.
+SEND_EMAIL_ON_ADDING_SYSTEM_MEMBER = True
+
+# Attempt limit before showing a captcha when login.
+LOGIN_ATTEMPT_LIMIT = 3
+
+# Whether a user's session cookie expires when the Web browser is closed.
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
+EOF
+
+# NOTE: overwrite
+# https://manual.seafile.com/config/seafile-conf.html
+cat <<'EOF' >/usr/local/www/haiwen/conf/ccnet.conf 
+[General]
+USER_NAME = nzhome
+ID = 3fd76645bd6f949326582fcea4ae256bd42dcbdd
+NAME = nzhome
+# from nginx 8001
+SERVICE_URL = http://nzhome.cloud.newhamlet.com:8001
+
+[Client]
+PORT = 13419
+
+EOF
+
+# NOTE: overwrite
+# https://manual.seafile.com/config/seafile-conf.html
+cat <<'EOF' >/usr/local/www/haiwen/conf/seafile.conf 
+[fileserver]
+port=8082
+host=127.0.0.1
+EOF
+
+/usr/local/www/haiwen/seafile-server/reset-admin.sh
+
+### end of seafile-server
+
+
 # anti-gfw 
 pkgloop install -y shadowsocks-libev proxychains-ng && \
 cp /usr/local/etc/proxychains.conf /usr/local/etc/proxychains.conf.$$
