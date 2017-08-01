@@ -22,11 +22,11 @@ fastpkg install -y git-gui meld  pinentry-curses pinentry-tty geany jpeg-turbo x
 
 # http://www.pc-freak.net/blog/how-to-take-area-screenshots-in-gnome-take-quick-area-selection-screenshots-in-g-linux-and-bsd/
 
-fastpkg install -y virt-viewer chromium firefox openjdk icedtea-web
+fastpkg install -y virt-viewer chromium firefox-esr openjdk icedtea-web
 
 # for aarch64
 allxfce4=`export ABI=FreeBSD:11:aarch64;pkg search xfce | grep '^xfce' | awk '{print $1}'`;
-fastpkg install -y git-gui meld  pinentry-curses pinentry-tty geany jpeg-turbo xv rdesktop xpdf zh-xpdf-zhfont virt-viewer firefox $allxfce4
+fastpkg install -y git-gui meld  pinentry-curses pinentry-tty geany jpeg-turbo xv rdesktop xpdf zh-xpdf-zhfont virt-viewer firefox-esr $allxfce4
 
 
 # for armv6 rpi2
@@ -35,6 +35,8 @@ fastpkg install -y git-gui meld  pinentry-curses pinentry-tty geany jpeg-turbo x
 #
 # https://www.freebsd.org/doc/handbook/x11.html
 #
+
+# for amd64
 
 # pkgloop is alias/script of pkg
 
@@ -45,7 +47,7 @@ echo $allxfce4
 # zh-fcitx-googlepinyin
 
 pkgloop install -y ${allxfce4} xorg xf86-video-scfb xdm slim xlockmore zh-fcitx zh-fcitx-cloudpinyin \
-zh-fcitx-table-extra zh-fcitx-configtool gnome3-lite
+zh-fcitx-table-extra zh-fcitx-configtool gnome-desktop xf86-video-intel
 
 # libreoffice or apache-openoffice
 pkgloop install -y virtualbox-ose virtualbox-ose-kmod virtualbox-ose-additions libreoffice noto
@@ -534,6 +536,9 @@ EOF
 echo 'rm -rf /tmp/.vbox-*-ipc' >> /etc/rc.local
 
 # video for libGL error: failed to open drm device: Permission denied
+
+id david
+
 pw groupmod video -m david
 
 pw groupmod vboxusers -m david
@@ -541,6 +546,47 @@ pw groupmod operator -m david
 pw groupmod wheel -m david
 pw groupmod dialer -m david
 id david
+
+#
+# fcitx
+#
+
+fastpkg install -y zh-fcitx zh-fcitx-cloudpinyin \
+zh-fcitx-table-extra zh-fcitx-configtool fcitx-qt5 fcitx-m17n
+
+# fcitx-qt5 for firefox?
+
+#
+# configure fcitx input
+#
+
+cat <<'EOF' > /usr/bin/fcitx-autostart
+#!/bin/sh
+
+# sleep for a little while to avoid duplicate startup
+sleep 2
+
+# Test whether fcitx is running correctly with dbus...
+fcitx-remote > /dev/null 2>&1
+
+if [ $? = "1" ]; then
+    echo "Fcitx seems is not running"
+    fcitx -r -d
+else
+    echo "Fcitx is running correctly."
+fi
+EOF
+
+chmod +x /usr/bin/fcitx-autostart
+
+# remove ibus
+
+pkg remove -y ibus
+
+#
+# NOTE:
+#      for xfce4-terminal, right-click mouse and select Input Methods-> fcitx to active chinese input
+#      or pkg remove ibus to make fcitx to default input method
 
 # switch sound output device/port
 # https://forums.freebsd.org/threads/47852/
@@ -563,6 +609,219 @@ cat /dev/sndstat
 
 # 1, default speaker, 2, Analog
 sudo sysctl -w hw.snd.default_unit=2
+
+
+#
+# run linux apps
+#
+# https://www.freebsd.org/doc/handbook/linuxemu.html
+#
+# FreeBSD provides 32-bit binary compatibility with Linux
+#
+
+# flashplayer for firefox
+
+# https://www.freebsd.org/doc/handbook/desktop-browsers.html
+
+# pkg remove firefox firefox-i18n flashplayer
+
+# install and configure linux-c6 first
+
+# here
+
+pkg remove -y firefox
+fastpkg install firefox-esr firefox-esr-i18n
+
+mount -t fdescfs fdesc /dev/fd
+mount -t procfs proc /proc
+
+# install linux-flashplayer
+
+cd /usr/ports/www/linux-flashplayer
+
+missingpkg=`make missing | awk -F'/' '{print $2}'` && \
+echo $missingpkg && pkg install $missingpkg
+
+# pkg: No packages available to install matching 'linux-c6-sqlite3' have been found in the repositories
+
+# pkg search linux-c6-sqlite
+pkg install -y linux-c6-sqlite linux-c6-cyrus-sasl-lib linux-c6-elfutils-libelf
+
+make install
+
+pkg install -y flashplayer
+
+nspluginwrapper -v -a -i
+# Auto-install plugins from /usr/local/lib/browser_plugins
+# Looking for plugins in /usr/local/lib/browser_plugins
+# Auto-install plugins from /usr/local/lib/browser_plugins/linux-flashplayer
+# Looking for plugins in /usr/local/lib/browser_plugins/linux-flashplayer
+# Install plugin /usr/local/lib/browser_plugins/linux-flashplayer/libflashplayer.so
+#   into /usr/local/lib/browser_plugins/npwrapper.libflashplayer.so
+# Auto-install plugins from /root/.mozilla/plugins
+# Looking for plugins in /root/.mozilla/plugins
+#
+
+# http://isflashinstalled.com/ to check is this install works
+
+# ======================================================================
+# Message from nspluginwrapper-1.4.4_7:
+# ================================================================
+# 
+# The nspluginwrapper is installed on a per user basis. All of
+# the commands can be run as an unprivileged user.
+# 
+# ================================================================
+# 
+# To install all the plugins from their default locations:
+# 
+# nspluginwrapper -v -a -i
+# 
+# ================================================================
+# 
+# To install a specific plugin:
+# 
+# nspluginwrapper -i path/to/plugin.so
+# 
+# ================================================================
+# 
+# To remove a specific plugin:
+# 
+# nspluginwrapper -r path/to/plugin.so
+# 
+# ================================================================
+# 
+# To view all currently installed plugins:
+# 
+# nspluginwrapper -l
+# 
+# ================================================================
+# 
+
+# about:plugins
+
+
+# https://github.com/churchers/vm-bhyve
+
+fastpkg install -y bhyve-firmware grub2-bhyve uefi-edk2-bhyve-csm uefi-edk2-bhyve tightvnc
+ 
+# bhyve mgr
+pkg install -y vm-bhyve 
+ 
+zfs create tank/workvm
+zfs set mountpoint=/tank/workvm tank/workvm
+ 
+cat <<'EOF'>> /etc/rc.conf
+# for vm-bhyve
+vm_enable="YES"
+vm_dir="zfs:tank/workvm"
+#
+EOF
+
+vm init
+
+vm version
+
+mkdir -p /tank/workvm/.templates/
+
+cp -v /usr/local/share/examples/vm-bhyve/* /tank/workvm/.templates/
+
+vm switch create public
+# or vm switch import public bridge0 to use existed bridge0
+
+vm switch add public re0
+
+vm iso http://ftp.freebsd.org/pub/FreeBSD/snapshots/ISO-IMAGES/12.0/FreeBSD-12.0-CURRENT-amd64-20170420-r317181-disc1.iso
+
+# virto driver
+wget https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso
+
+# https://pve.proxmox.com/wiki/Windows_10_guest_best_practices#Install_additional_VirtIO_drivers_on_running_System
+#      Ethernet Adapter: NetKVM\w8.1\amd64 here right-click the setup information file "netkvm" and select install.
+#     Virtual Memory Balloon Driver: Balloon\w8.1\amd64 here right-click the setup information file "balloon" and select install.
+#     Hard disk: viostor\w8.1\amd64 here right-click the setup information file "viostor" and select install.
+
+# iso file will put in /tank/workvm/.iso/
+
+# UEFI boot
+# https://github.com/churchers/vm-bhyve/wiki/UEFI-Graphics-(VNC)
+#
+
+kldload nmdm 
+kldload vmm 
+
+cat <<'EOF' > /tank/workvm/.templates/freebsd12amd64.conf
+graphics="yes"
+graphics_res="1280x720"
+graphics_wait="yes"
+uefi="yes"
+loader="bhyveload"
+cpu=2
+memory=2048M
+network0_type="virtio-net"
+network0_switch="public"
+#disk0_type="virtio-blk"
+disk0_type="ahci-hd"
+disk0_name="disk0.img"
+disk0_opts="nocache,direct"
+disk0_size="40G"
+EOF
+
+vm create -t freebsd12amd64 freebsd12amd64
+# vm configure file: /tank/workvm/freebsd12amd64/freebsd12amd64.conf
+
+kldload nmdm 
+kldload vmm 
+
+cat <<'EOF' > /tank/workvm/.templates/win10.conf
+graphics="yes"
+graphics_res="1280x720"
+graphics_wait="yes"
+uefi="yes"
+loader="bhyveload"
+cpu=4
+memory=8192M
+xhci_mouse="yes"
+
+network0_type="virtio-net"
+network0_switch="public"
+#disk0_type="virtio-blk"
+disk0_type="ahci-hd"
+disk0_name="bootdisk.raw"
+disk0_opts="nocache,direct"
+disk0_size="4G"
+
+disk1_type="ahci-hd"
+disk1_name="systemdisk.raw"
+disk1_opts="nocache,direct"
+disk1_size="40G"
+disk2_type="ahci-hd"
+disk2_name="datadisk.raw"
+disk2_opts="nocache,direct"
+disk2_size="40G"
+EOF
+
+vm create -t win10 win10
+# vm configure file: /tank/workvm/freebsd12amd64/freebsd12amd64.conf
+
+vm list
+
+vm info
+
+vm console win10
+
+# vm [-f] install freebsd12amd64 FreeBSD-12.0-CURRENT-amd64-20170420-r317181-disc1.iso
+vm install freebsd12amd64 FreeBSD-12.0-CURRENT-amd64-20170420-r317181-disc1.iso
+
+vm list
+
+vm info
+
+vm console freebsd12amd64
+# press ~. to exit from console
+
+# vnc console: pkg install tigervnc
+vncviewer 127.0.0.1:5900
 
 #
 # remote desktop
@@ -629,47 +888,6 @@ EOF
 chmod +x ~/bin/xremote.sh
 
 # reboot to take effect
-
-#
-# fcitx
-#
-
-pkg install -y zh-fcitx zh-fcitx-cloudpinyin \
-zh-fcitx-table-extra zh-fcitx-configtool fcitx-qt5 fcitx-m17n
-
-# fcitx-qt5 for firefox?
-
-#
-# configure fcitx input
-#
-
-cat <<'EOF' > /usr/bin/fcitx-autostart
-#!/bin/sh
-
-# sleep for a little while to avoid duplicate startup
-sleep 2
-
-# Test whether fcitx is running correctly with dbus...
-fcitx-remote > /dev/null 2>&1
-
-if [ $? = "1" ]; then
-    echo "Fcitx seems is not running"
-    fcitx -r -d
-else
-    echo "Fcitx is running correctly."
-fi
-EOF
-
-chmod +x /usr/bin/fcitx-autostart
-
-# remove ibus
-
-pkg remove -y ibus
-
-#
-# NOTE:
-#      for xfce4-terminal, right-click mouse and select Input Methods-> fcitx to active chinese input
-#      or pkg remove ibus to make fcitx to default input method
 
 test ! -s ${HOME}/.config/fcitx/config && cat <<'EOF'> ${HOME}/.config/fcitx/config
 [Hotkey]
@@ -1065,10 +1283,6 @@ export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/qt5/:/home/david/liteide
 # http://stackoverflow.com/questions/30709056/libpng-warning-iccp-not-recognizing-known-srgb-profile-that-has-been-edited
 
 
-#
-# run linux apps
-#
-# https://www.freebsd.org/doc/handbook/linuxemu.html
-#
-# FreeBSD provides 32-bit binary compatibility with Linux
-#
+
+
+
