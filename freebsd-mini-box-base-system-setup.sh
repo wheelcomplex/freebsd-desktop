@@ -777,13 +777,28 @@ screen bind-tools pigz gtar unzip xauth mtools vim-lite
 
 # amd64
 fastpkg install -y sudo pciutils usbutils vim rsync cpuflags axel git-gui wget ca_root_nss subversion pstree \
-screen bind-tools pigz gtar dot2tex unzip xauth fusefs-ntfs mtools && ln -s `which ntfs-3g` /usr/sbin/mount_ntfs-3g
+screen bind-tools pigz gtar dot2tex unzip xauth fusefs-ntfs mtools mountsmb2 && ln -s `which ntfs-3g` /usr/sbin/mount_ntfs-3g
 
 # man ntfs-3g
 # /usr/sbin/mount_ntfs-3g -o ro,uid=1000,gid=1000 /dev/da0s1 /mnt/msdos/
 # /dev/ad4s1		/wxp		ntfs-3g	rw,uid=0,gid=0,late		0	0
 
-#
+# list windows shares
+smbclient -I 172.16.254.41 -Udavid -L 172.16.254.41
+# 
+# Enter david's password: 
+# Domain=[DESKTOP-OOHVMSR] OS=[Windows 10 Education 10586] Server=[Windows 10 Education 6.3]
+# 
+# 	Sharename       Type      Comment
+# 	---------       ----      -------
+# 	ADMIN$          Disk      远程管理
+# 	C$              Disk      默认共享
+# 	D$              Disk      默认共享
+# 	IPC$            IPC       远程 IPC
+# 	winshare        Disk      win10 for david
+
+# mount
+sudo mount_smbfs -T 5 -I 172.16.254.41 -Udavid //david@DESKTOP-U6M9VA0/winshare /mnt/tmp
 
 fastpkg install -y bash-completion
 
@@ -1080,12 +1095,27 @@ server=/zhidao.baidu.com/8.8.8.8
 all-servers
 
 #
-log-queries
+# log-queries
 #
 # enable dhcp server
 #
 # dhcp-range=172.16.0.91,172.16.0.110,240h
 #
+#
+
+#
+# dhcp for vm console
+dhcp-range=vmcon,172.16.254.1,172.16.254.100,20h
+# option 3, default gateway
+dhcp-option=vmcon,3
+# option 6, dns server
+dhcp-option=vmcon,6
+# option 15, domain-name
+dhcp-option=vmcon,15,vmconsole.localdomain
+
+# dhcp for vm nat
+dhcp-range=172.16.253.1,172.16.253.100,20h
+
 #
 log-dhcp
 #
@@ -1379,10 +1409,10 @@ cat <<'EOF' > /etc/pf.conf
 #
 # interfaces
 ext_if  = "wlan0"
-ext_vpn_if  = "ng0"
-lan_if = "bridge0"
+ext_vpn_if  = "bridge0"
+lan_if = "bridge8191"
 
-skipped_if = "{ lo }"
+skipped_if = "{ lo bridge8192 }"
 
 # Transparent Proxy
 http_port = "80"
@@ -1424,7 +1454,7 @@ nat on $ext_vpn_if inet from ! ($ext_vpn_if) to any -> ($ext_vpn_if)
 #rdr pass on $lan_if inet proto tcp from any to any port $http_port -> $cache_host port $cache_port
 
 # redirect dns traffic to local dnsmasq 
-rdr pass on $lan_if inet proto tcp from any to any port $dns_port -> $dnscache_host port $dnscache_port
+# rdr pass on $lan_if inet proto tcp from any to any port $dns_port -> $dnscache_host port $dnscache_port
 
 #------------------------------------------------------------------------
 # firewall policy
@@ -1433,9 +1463,61 @@ rdr pass on $lan_if inet proto tcp from any to any port $dns_port -> $dnscache_h
 pass in quick from any to any
 pass out quick from any to any
 #
+
 EOF
 
 #
+
+# dynamic gateway
+
+cat <<'EOF' > /etc/pf.conf
+#
+# simple pf
+#
+
+# interfaces
+ext_if  = "wlan0"
+
+workvm = "172.16.253.254"
+
+# skipped_if = "{ lo bridge8192 }"
+skipped_if = "{ lo }"
+
+#
+
+include "/etc/pf.dyn.conf"
+
+include "/etc/pf.rdr.conf"
+
+#------------------------------------------------------------------------
+# options
+#------------------------------------------------------------------------
+# config
+set block-policy return
+set loginterface $ext_if
+set skip on $skipped_if
+set state-policy if-bound
+
+# scrub
+scrub in on $ext_if all
+
+#rdr
+pass in on $ext_if proto tcp from ! ($ext_if) to egress port 3389 rdr-to $workvm
+
+# nat
+nat on $ext_if inet from ! ($ext_if) to any -> ($ext_if)
+
+# default pass
+pass in quick from any to any
+pass out quick from any to any
+#
+EOF
+
+#
+
+cat <<'EOF' > /etc/pf.rdr.conf
+workvm = "127.0.0.1"
+EOF
 
 cat <<'EOF'> /usr/sbin/pfsess
 #!/bin/sh
@@ -1443,34 +1525,48 @@ cat <<'EOF'> /usr/sbin/pfsess
 # check kmod of pf
 #
 
-kldload pf
-kldload pflog
+GWNIC=`netstat -nr -4 | grep default | awk '{print $4}'| head -n 1`
 
-pfctl -e
-# pf enabled
+if [ -z "$GWNIC" ]
+then
+    echo "ERROR: GATEWAY NOT FOUND"
+    GWNIC=wlan99
+fi
 
-echo "/etc/pf.conf"
+echo "GATEWAY DEVICE: $GWNIC"
+echo "ext_if  = $GWNIC" > /etc/pf.dyn.conf || exit 1
+
 pfctl -vnf /etc/pf.conf
+
+kldload pf 2>/dev/null
+kldload pflog 2>/dev/null
 
 echo ""
 errcode=0
-if [ "$1" = "stop" -o "$1" = "start" ]
+
+pfctl -d  >/dev/null 2>&1
+
+sysctl -w net.inet.ip.forwarding=0 >/dev/null
+pfctl -F nat >/dev/null 2>&1 && pfctl -F queue >/dev/null 2>&1 && pfctl -F rules >/dev/null 2>&1
+errcode=$?
+sleep 1 
+if [ "$1" = "stop" ]
 then
-    sysctl -w net.inet.ip.forwarding=0
-    pfctl -F nat && pfctl -F queue && pfctl -F rules
-    errcode=$?
-    sleep 1 
+    exit $errcode
 fi
-if [ "$1" = "start" ]
-then
-    sysctl -w net.inet.ip.forwarding=1
-    pfctl -f /etc/pf.conf
-    errcode=$?
-    sleep 1 
-fi
+
+sysctl -w net.inet.ip.forwarding=1 >/dev/null
+pfctl -e  >/dev/null 2>&1
+# pf enabled
+
+#
+pfctl -f /etc/pf.conf >/dev/null
+errcode=$?
 #
 echo "pf state"
-pfctl -s rules && pfctl -s nat && pfctl -s state
+pfctl -s rules && echo "" && pfctl -s nat
+# && echo "" && pfctl -s state
+echo ""
 #
 exit $errcode
 #
@@ -1482,20 +1578,40 @@ chmod +x /usr/sbin/pfsess
 cat <<'EOF' > /sbin/netmgr.sh
 #!/bin/sh
 
+if [ `id -u` -ne 0 ]
+then
+    sudo $0 $@
+    exit $?
+fi
+
 . /etc/initz.network.conf
 
 # for wlan0
-WIFICLIENTIF="wlan0"
-# for wlan1, softap
-SOFTAPIF="wlan1"
+test -z "$WIFICLIENTIF" && WIFICLIENTIF="wlan0"
 
-BRIDGEIF="bridge0"
+# for wlan1, softap
+test -z "$SOFTAPIF" && SOFTAPIF="wlan1"
+
+test -z "$LANBRIDGE" && LANBRIDGE="bridge0"
+
+test -z "$CONSOLEBRIDGE" && CONSOLEBRIDGE="bridge8192"
+
+test -z "$APBRIDGE" && APBRIDGE="bridge8191"
+
+test -z "$AP_ADDRS" && AP_ADDRS="172.16.253.254/24"
+
+test -z "$CONSOLE_ADDRS" && CONSOLE_ADDRS="172.16.254.254/24"
 
 # YES to add wifi client to bridge
-CLIENTBRIDGE="NO"
+# not works
+test -z "$CLIENTBRIDGE" && CLIENTBRIDGE="NO"
 
 #
-CLIENTDHCP="YES"
+test -z "$CLIENTDHCP" && CLIENTDHCP="YES"
+
+test -z "$SOFTAPTXPOWER" && SOFTAPTXPOWER="10"
+
+test -z "$WIFICLIENTTXPOWER" && WIFICLIENTTXPOWER="30"
 
 # load wlan kmods
 kmods="wlan wlan_xauth wlan_ccmp wlan_tkip wlan_acl wlan_amrr wlan_rssadapt"
@@ -1507,11 +1623,58 @@ done
 
 wired_reset(){
     service sshd start
-    ifconfig $BRIDGEIF destroy 2>/dev/null
+    ifconfig $LANBRIDGE destroy 2>/dev/null
     sleep 1
-    service netif stop
+    service netif stop >/dev/null
     sleep 1
     service netif start
+    #
+    ifconfig $LANBRIDGE >/dev/null 2>&1
+    if [ $? -ne 0 ]
+    then
+        ifconfig $LANBRIDGE create
+        ifconfig $LANBRIDGE up
+    fi
+    local addr=""
+    local alias=""
+    for addr in $LAN_ADDRS
+    do
+        /sbin/ifconfig $LANBRIDGE $addr $alias
+        alias="alias"
+    done
+    #
+    ifconfig $CONSOLEBRIDGE >/dev/null 2>&1
+    if [ $? -ne 0 ]
+    then
+        ifconfig $CONSOLEBRIDGE create
+        ifconfig $CONSOLEBRIDGE up
+    fi
+    local addr=""
+    local alias=""
+    for addr in $CONSOLE_ADDRS
+    do
+        /sbin/ifconfig $CONSOLEBRIDGE $addr $alias
+        alias="alias"
+    done
+    ifconfig $APBRIDGE >/dev/null 2>&1
+    if [ $? -ne 0 ]
+    then
+        ifconfig $APBRIDGE create
+        ifconfig $APBRIDGE up
+    fi
+    local addr=""
+    local alias=""
+    for addr in $AP_ADDRS
+    do
+        /sbin/ifconfig $APBRIDGE $addr $alias
+        alias="alias"
+    done
+    test -n "$WAN_GW" && route add -net 0/0 $WAN_GW
+    echo " ----"
+    sleep 1
+    #ifconfig
+    netstat -nr -4
+    echo " ----"
     #
     local allnic=""
     local addms=""
@@ -1519,7 +1682,7 @@ wired_reset(){
     local nicflags=$LAN_NICS
     if [ "$nicflags" = "AUTO" -o "$nicflags" = "AUTOX" ]
     then
-        LAN_NICS=`ifconfig -a | grep ": flags=" | tr ':' ' '| awk '{print $1}'| grep -v ^lo | grep -v ^bridge| grep -v ^pf`
+        LAN_NICS=`ifconfig -a | grep ": flags=" | tr ':' ' '| awk '{print $1}'| grep -v ^lo | grep -v ^bridge| grep -v ^pf| grep -v ^tap | grep -v ^wlan`
     fi
     for nic in $LAN_NICS
     do
@@ -1541,26 +1704,25 @@ wired_reset(){
         else
             addms="$addms addm $nic"
         fi
+        ifconfig $nic up
     done
     if [ -z "$addms" -o "$addms" = "x" ]
     then
         echo "warning: LAN_NICS not found or not defined($nicflags)."
-        return 0
+    else
+        /sbin/ifconfig $LANBRIDGE $addms || exit 1
     fi
-    #
-    /sbin/ifaceboot $BRIDGEIF $addms
-    local addr=""
-    local alias=""
-    for addr in $LAN_ADDRS
-    do
-        /sbin/ifconfig $BRIDGEIF $addr $alias
-        alias="alias"
-    done
-    test -n "$WAN_GW" && route add -net 0/0 $WAN_GW
     echo " ----"
-    sleep 1
-    ifconfig
-    netstat -nr
+    /sbin/ifconfig $LANBRIDGE
+    echo " ----"
+    /sbin/ifconfig $CONSOLEBRIDGE
+    echo " ----"
+    /sbin/ifconfig $APBRIDGE
+    echo " ----"
+    service dnsmasq stop
+    service dnsmasq start
+    echo " ----"
+    pfsess start
     echo " ----"
     echo "wired networking reseted."
     echo " ----"
@@ -1570,60 +1732,179 @@ wifi_client(){
     local arg1="$1"
     local code=0
     # sleep to prevent panic
+    ifconfig $WIFICLIENTIF down 2>/dev/null
+    sleep 1
     killall wpa_supplicant 2>/dev/null
     sleep 1
     ifconfig $WIFICLIENTIF destroy 2>/dev/null
     sleep 1
     if [ "$arg1" = "stop" ]
     then
+        pfsess start 
         return $?
     fi
-    test -z "$WIFICLIENTNIC" && echo "device for wifi client (WIFICLIENTNIC) not defined" && return 0
-    /sbin/ifaceboot $WIFICLIENTIF $WIFICLIENTNIC wlanmode sta up
-    /sbin/ifconfig $WIFICLIENTIF >/dev/null 2>&1
-    test $? -ne 0 && echo "FAILED: $WIFICLIENTIF $WIFICLIENTNIC wlanmode sta up" && return 1
-    sleep 1 && /sbin/ifconfig $WIFICLIENTIF txpower 30
-    /sbin/ifconfig $WIFICLIENTIF up
-    sleep 1
-    /usr/sbin/wpa_supplicant -B -i $WIFICLIENTIF -c /etc/wpa_supplicant.conf
-    echo ""
-    echo "waiting for $WIFICLIENTIF(90 seconds) ..."
-    for aaa in `seq 1 90`
-    do
-        ifconfig $WIFICLIENTIF | grep -q 'status: associated'
-        test $? -eq 0 && break
-        sleep 1
-    done
-    echo " ----"
-    echo -n "WIFI CLIENT CONNECTED: " && ifconfig $WIFICLIENTIF | grep "ssid "
-    echo " ----"
-    ifconfig $WIFICLIENTIF
-    if [ "$CLIENTBRIDGE" = "YES" ]
+    local devlist="$WIFICLIENTNIC"
+    if [ "$WIFICLIENTNIC" = 'AUTO' ]
     then
-        sleep 1
-        /sbin/ifconfig $WIFICLIENTIF up 
-        sleep 3
-        /sbin/ifconfig $BRIDGEIF addm $WIFICLIENTIF
-        sleep 1
-        if [ "$CLIENTDHCP" = "YES" ]
-        then
-            dhclient $BRIDGEIF
-        fi
-    else
-        if [ "$CLIENTDHCP" = "YES" ]
-        then
-            dhclient $WIFICLIENTIF
-        fi
+        local drvlist=`kldstat -v| grep 'if_' | grep -v 'if_lo' | grep -v 'if_lagg' | grep -v 'if_vlan' | grep -v 'if_bridge' | grep -v 'if_gif'| grep -v 'if_tun'| grep -v 'if_tap'| awk -F'if_' '{print $2}'| tr '_.' ' '| awk '{print $1}'`
+        drvlist="$drvlist `dmesg | grep '[1-9]T[1-9]R'| grep ': '| tr ':[0-9]' ' '|awk '{print $1}'| sort|uniq`"
+        local onedrv=''
+        devlist=''
+        for onedrv in $drvlist
+        do
+            local fndev=`dmesg | ''grep "^${onedrv}[0-9]:"| awk -F':' '{print $1}'| sort|uniq`
+            if [ -z "$fndev" ]
+            then
+                continue
+            fi
+            fndev=`echo $fndev`
+            # dedup
+            echo "$devlist" | grep -q "$fndev" && echo "already exist: $fndev" && continue
+            test -n "$SOFTAPNIC" -a "$SOFTAPNIC" = "$fndev" && echo "softap device skipped: $fndev" && continue
+            echo "new device: $fndev"
+            if [ -z "$devlist" ]
+            then
+                devlist=$fndev
+            else
+                devlist="$devlist $fndev"
+            fi
+        done
     fi
+    if [ -z "$devlist" ]
+    then
+        echo "ERROR: wireless device not found"
+        return 1
+    else
+        echo ""
+        echo "TRYING WITH WIRELESS DEVICES: $devlist"
+        echo ""
+    fi
+    local scanfile="/tmp/netmgr.wificlient.log"
+    for wifidev in $devlist
+    do
+        sleep 3
+        local connected=0
+        local brcmd="/sbin/ifaceboot $WIFICLIENTIF $wifidev wlanmode sta up"
+        echo "create wificlient device: $brcmd"
+        $brcmd >/dev/null 2>&1
+        /sbin/ifconfig $WIFICLIENTIF >/dev/null 2>&1
+        test $? -ne 0 && echo "FAILED: $WIFICLIENTIF $wifidev wlanmode sta up" && continue
+        sleep 1 && /sbin/ifconfig $WIFICLIENTIF txpower 30 2>/dev/null
+        echo "bring up $WIFICLIENTIF($wifidev) ..."
+        /sbin/ifconfig $WIFICLIENTIF up
+        sleep 1
+        local ssid5g=`ls -A /etc/wpa_supplicant.conf.* | awk -F'.conf.' '{print $2}'| grep -i '_5G$'|sort`
+        local ssid2g=`ls -A /etc/wpa_supplicant.conf.* | awk -F'.conf.' '{print $2}'| grep -iv '_5G$'|sort`
+        if [ -z "$ssid5g" -a -z "$ssid2g" ]
+        then
+            echo ""
+            echo "ERROR: get ssid list from /etc/wpa_supplicant.conf.* failed"
+            continue
+        fi
+        local ssidlist=''
+        local item=''
+        for item in $ssid5g $ssid2g
+        do
+            ssidlist="$ssidlist $item"
+        done
+        echo ""
+        echo "scaning and match SSID:$ssidlist"
+        echo ""
+        local targetssid=''
+        for aaa in `seq 0 100`
+        do
+            timeout 5 /sbin/ifconfig wlan0 scan > $scanfile || \
+            timeout 30 /sbin/ifconfig wlan0 scan > $scanfile
+            local airssid=`cat $scanfile | awk '{print $1}' | sort | uniq`
+            if [ -z "$airssid" ]
+            then
+                echo "air ssid not found, re-try ..."
+                sleep 3
+                continue
+            fi
+            for onessid in $airssid
+            do
+                for cssid in $ssidlist
+                do
+                    if [ "$cssid" = "$onessid" ]
+                    then
+                        targetssid="$onessid"
+                        break
+                    fi
+                done
+                test -n "$targetssid" && break
+            done
+            test -n "$targetssid" && break
+        sleep 1
+        done
+        if [ -z "$targetssid" ]
+        then
+            echo ""
+            echo "ERROR: ssid mismatched."
+            echo ""
+            continue
+        fi
+        ifconfig $WIFICLIENTIF txpower $WIFICLIENTTXPOWER 2>/dev/null
+        echo "connecting to $targetssid ..."
+        wpacfg="/etc/wpa_supplicant.conf.$targetssid"
+        /usr/sbin/wpa_supplicant -B -i $WIFICLIENTIF -c $wpacfg
+        echo ""
+        echo "waiting for $WIFICLIENTIF($wifidev => $targetssid) ..."
+        local bssid=`ifconfig $WIFICLIENTIF | grep "ssid " | awk '{print $10}'`
+        connected=0
+        for aaa in `seq 1 20`
+        do
+            bssid=`ifconfig $WIFICLIENTIF | grep "ssid " | awk '{print $10}'`
+            test -n "$bssid" && ""ifconfig $WIFICLIENTIF | grep -q 'status: associated'
+            test $? -eq 0 && connected=1 && break
+            sleep 1
+        done
+        echo " ----"
+        if [ $connected -eq 0 ]
+        then
+            echo "WIFI CLIENT CONNECT FAILED."
+            echo " ----"
+            continue
+        fi
+        
+        echo -n "WIFI CLIENT CONNECTED($WIFICLIENTIF:$wifidev): " && ifconfig $WIFICLIENTIF | grep "ssid "
+        echo " ----"
+        #ifconfig $WIFICLIENTIF
+            if [ "$CLIENTDHCP" = "YES" ]
+            then
+                dhclient $WIFICLIENTIF
+            fi
+        #
+        #/sbin/ifconfig $WIFICLIENTIF
+        service dnsmasq restart >/dev/null 2>&1
+        pfsess start
+        netstat -nr -4
+        echo " ----"
+        cat $scanfile | grep "$bssid"
+        echo " ----"
+        if [ $WIFIMONITOR -eq 0 ]
+        then
+            echo "`date` connected($WIFIRECONNECTCNT) on $WIFICLIENTIF($wifidev) $targetssid($bssid)."
+            echo " ----"
+            return 0
+        fi
+        echo "`date` monitor($WIFIRECONNECTCNT) on $WIFICLIENTIF($wifidev) $targetssid($bssid) ..."
+        while [ : ]
+        do
+            sleep 3
+            ifconfig $WIFICLIENTIF | grep -q 'status: associated'
+            if [ $? -ne 0 ]
+            then
+                let WIFIRECONNECTCNT=$WIFIRECONNECTCNT+1 >/dev/null
+                echo "`date` connection lost($WIFIRECONNECTCNT), re-rty ..."
+                # call myself
+                wifi_client stop >/dev/null 2>&1
+                break
+            fi
+        done
+    done
     #
-    /sbin/ifconfig $WIFICLIENTIF
-    /sbin/ifconfig $BRIDGEIF
-    service dnsmasq restart
-    netstat -nr
-    #
-    /usr/sbin/pfsess start > /dev/null
-    #
-    return $?
+    return 1
 }
 
 soft_ap(){
@@ -1643,15 +1924,30 @@ soft_ap(){
     sleep 1
     ifconfig $SOFTAPIF destroy 2>/dev/null
     sleep 1
+    ifconfig $APBRIDGE >/dev/null 2>&1
+    if [ $? -ne 0 ]
+    then
+        ifconfig $APBRIDGE create
+    fi
+    local addr=""
+    local alias=""
+    for addr in $AP_ADDRS
+    do
+        /sbin/ifconfig $APBRIDGE $addr $alias
+        alias="alias"
+    done
     if [ "$arg1" = "stop" ]
     then
         return $?
     fi
     test -z "$SOFTAPNIC" && echo "device for softap (SOFTAPNIC) not defined" && return 0
-    /sbin/ifaceboot $SOFTAPIF $SOFTAPNIC wlanmode hostap
+    local brcmd="/sbin/ifaceboot $SOFTAPIF $SOFTAPNIC wlanmode hostap"
+    echo "create softap bridge: $brcmd"
+    $brcmd >/dev/null 2>&1
     /sbin/ifconfig $SOFTAPIF >/dev/null 2>&1
     test $? -ne 0 && echo "FAILED: $SOFTAPIF $SOFTAPNIC wlanmode hostap" && return 1
-    sleep 1 && /sbin/ifconfig $SOFTAPIF txpower 30
+    sleep 1
+    ifconfig $SOFTAPIF txpower $SOFTAPTXPOWER 2>/dev/null
     /sbin/ifconfig $SOFTAPIF up
     sleep 1
     rm -f /var/run/hostapd/$SOFTAPIF
@@ -1663,7 +1959,7 @@ soft_ap(){
     /sbin/ifconfig $SOFTAPIF up 
     sleep 3
     /sbin/ifconfig $SOFTAPIF
-    /sbin/ifconfig $BRIDGEIF addm $SOFTAPIF
+    /sbin/ifconfig $APBRIDGE addm $SOFTAPIF
     echo "waiting for $SOFTAPIF(15 seconds) ..."
     for aaa in `seq 1 15`
     do
@@ -1675,23 +1971,46 @@ soft_ap(){
     echo -n "SOFT AP: " && ifconfig $SOFTAPIF | grep "ssid "
     echo " ----"
     /sbin/ifconfig $SOFTAPIF
-    /sbin/ifconfig $BRIDGEIF
+    /sbin/ifconfig $APBRIDGE
     return $code
 }
 
+export WIFIRECONNECTCNT=0
+export WIFIMONITOR=0
 if [ -z "$1" ]
 then
     wired_reset start
     soft_ap start
     wifi_client start
+    #
+    /usr/sbin/pfsess start > /dev/null
+    echo "PF firewall refreshed."
+    #
     exit $?
 fi
-
+if [ "$1" = "pf" ]
+then
+    /usr/sbin/pfsess start > /dev/null
+    echo "PF firewall refreshed."
+fi
 if [ "$1" = "stop" ]
 then
     soft_ap stop
     wifi_client stop
     wired_reset stop
+    /usr/sbin/pfsess start > /dev/null
+    echo "PF firewall refreshed."
+    exit $?
+fi
+
+if [ "$1" = "lan" ]
+then
+    if [ "$2" = "stop" ]
+    then
+        wired_reset stop
+        exit 0
+    fi
+    wired_reset start
     exit $?
 fi
 
@@ -1713,14 +2032,27 @@ then
         wifi_client stop
         exit 0
     fi
-    wifi_client start
+    code=0
+    if [ "$2" = "monitor" ]
+    then
+        WIFIMONITOR=1
+    fi
+    while [ : ]
+    do
+        wifi_client start
+        if [ $WIFIMONITOR -ne 1 ]
+        then
+            break
+        fi
+    done
     exit $?
 fi
 #
-
 EOF
 
 chmod +x /sbin/netmgr.sh
+
+# David note: make sure dhcp works on ap bridge
 
 # anti-gfw 
 pkgloop install -y shadowsocks-libev proxychains-ng && \
@@ -1791,11 +2123,15 @@ cat <<'EOF' > /etc/initz.network.conf
 LAN_ADDRS="172.16.0.3/24"
 # AUTOX to skip first ether nic
 LAN_NICS="AUTO"
-WAN_GW="172.16.0.254"
+# WAN_GW="172.16.0.254"
 
-# SOFTAPNIC="rtwn1"
+SOFTAPNIC="ath0"
 
-# WIFICLIENTNIC="rtwn0"
+WIFICLIENTNIC="AUTO"
+
+BRIDGEIF="bridge8191"
+
+SOFTAPTXPOWER="5"
 
 EOF
 
@@ -1946,7 +2282,144 @@ pkg install -y convmv
 echo 'net.inet.ip.portrange.reservedlow=0' >> /etc/sysctl.conf
 echo 'net.inet.ip.portrange.reservedhigh=1023' >> /etc/sysctl.conf
 
+# nginx web server + proxy
+
+fastpkg install -y nginx
+
+
+cat <<'EOF'>/usr/share/nginx/html/robots.txt
+Disallow: /
+EOF
+
+# using www-data
+
+cat <<'EOF' > /etc/nginx/nginx.conf 
 #
+user  www-data;
+worker_processes  2;
+
+error_log  /var/log/nginx/error.log notice;
+pid        /var/run/nginx.pid;
+
+events {
+    worker_connections  1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$scheme://$http_host$request_uri" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    keepalive_timeout  65;
+
+    #gzip  on;
+
+    include /etc/nginx/conf.d/*.conf;
+}
+EOF
+
+mkdir -p /etc/nginx/ssl
+
+# for letsencrypt
+mkdir -p /usr/share/nginx/html/.well-known
+
+# all server
+
+cat <<'EOF'> /etc/nginx/conf.d/default.conf
+server {
+        # http2 server
+        listen 443 ssl http2 default_server;
+        listen [::]:443 ssl http2 default_server;
+        
+        server_name _;
+        
+        ssl_certificate /etc/letsencrypt/live/david.city/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/david.city/privkey.pem;
+        
+        ssl_ciphers EECDH+CHACHA20:EECDH+AES128:RSA+AES128:EECDH+AES256:RSA+AES256:EECDH+3DES:RSA+3DES:!MD5;
+        
+        ssl_dhparam  /etc/nginx/ssl/dhparam.pem;
+        
+        ssl_session_cache shared:SSL:5m;
+        
+        ssl_session_timeout 1h;
+
+        charset utf-8;
+
+        access_log  /var/log/nginx/ssl.access.log  main;
+
+        add_header Strict-Transport-Security "max-age=15768000; includeSubDomains: always;";
+
+       location / {
+           root   /usr/share/nginx/html;
+           index  index.html index.htm;
+       }
+
+        # redirect server error pages to the static page /50x.html
+        #
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /usr/share/nginx/html;
+        }
+
+        # proxy the PHP scripts to Apache listening on 127.0.0.1:80
+        #
+        #location ~ \.php$ {
+        #    proxy_pass   http://127.0.0.1;
+        #}
+
+        # pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
+        #
+        #location ~ \.php$ {
+        #    root           html;
+        #    fastcgi_pass   127.0.0.1:9000;
+        #    fastcgi_index  index.php;
+        #    fastcgi_param  SCRIPT_FILENAME  /scripts$fastcgi_script_name;
+        #    include        fastcgi_params;
+        #}
+
+        # deny access to .htaccess files, if Apache's document root
+        # concurs with nginx's one
+        #
+        #location ~ /\.ht {
+        #    deny  all;
+        #}
+}
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    server_name _;
+    
+        access_log  /var/log/nginx/http.access.log  main;
+
+        # redirect http requests to https
+        location / {
+            # uncomment return 301 after letencrypto setup ok
+            # should be http_host instead of server_name.
+            return         301 https://$http_host$request_uri;
+            root   /usr/share/nginx/html;
+            # index  index.html index.htm;
+        }
+        # for letsencrypt
+        location ~ /.well-known {
+            root   /usr/share/nginx/html;
+            allow all;
+        }
+}
+EOF
+
+nginx -t && service nginx restart
+
 
 # seafile-server in http
 # https://manual.seafile.com/deploy/using_sqlite.html
