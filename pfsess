@@ -1,0 +1,50 @@
+#!/bin/sh
+#
+# check kmod of pf
+#
+
+GWNIC=`netstat -nr -4 | grep default | awk '{print $4}'| head -n 1`
+
+if [ -z "$GWNIC" ]
+then
+    echo "ERROR: GATEWAY NOT FOUND"
+    GWNIC=wlan99
+fi
+
+echo "GATEWAY DEVICE: $GWNIC"
+echo "ext_if  = $GWNIC" > /etc/pf.dyn.conf || exit 1
+
+pfctl -vnf /etc/pf.conf
+
+kldload pf 2>/dev/null
+kldload pflog 2>/dev/null
+
+echo ""
+errcode=0
+
+pfctl -d  >/dev/null 2>&1
+
+sysctl -w net.inet.ip.forwarding=0 >/dev/null
+pfctl -F nat >/dev/null 2>&1 && pfctl -F queue >/dev/null 2>&1 && pfctl -F rules >/dev/null 2>&1
+errcode=$?
+sleep 1 
+if [ "$1" = "stop" ]
+then
+    exit $errcode
+fi
+
+sysctl -w net.inet.ip.forwarding=1 >/dev/null
+pfctl -e  >/dev/null 2>&1
+# pf enabled
+
+#
+pfctl -f /etc/pf.conf >/dev/null
+errcode=$?
+#
+echo "pf state"
+pfctl -s rules && echo "" && pfctl -s nat
+# && echo "" && pfctl -s state
+echo ""
+#
+exit $errcode
+#

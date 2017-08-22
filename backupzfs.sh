@@ -31,6 +31,12 @@ item_uniq_r(){
 
 item_uniq(){
 	local all="$@"
+	local res="`doitem_uniq $all`"
+	echo "$res"
+}
+
+doitem_uniq(){
+	local all="$@"
 	local aaa=''
 	for aaa in $all
 	do
@@ -108,12 +114,42 @@ pathprune(){
     echo "$line"
 }
 
+sc(){
+	local msg="$@"
+	${SRCSSH}${msg}
+	return $?
+}
+
+dc(){
+	local msg="$@"
+	${DSTSSH}${msg}
+	return $?
+}
+
+ss(){
+	sc zfs $@
+	return $?
+}
+
+ds(){
+	dc zfs $@
+	return $?
+}
+
+
+ss(){
+	sc zfs $@
+	return $?
+}
+
 usage(){
     pecho "$MK_SCRIPT [-x] [-t tag] <[host@]src dataset> <[host@]dst dataset>"
     exit 1
 }
 
 export xtrace=""
+export debug=""
+export progress="0"
 export nodedup="0"
 export utag=""
 export SRCHOST=""
@@ -139,6 +175,11 @@ do
         needval="$aaa"
         continue
     fi
+    if [ "$aaa" = "-v" ]
+    then
+        progress="1"
+        continue
+    fi
     if [ "$aaa" = "-dup" ]
     then
         nodedup="1"
@@ -148,6 +189,11 @@ do
     then
         set -x
         xtrace="-x"
+        continue
+    fi
+    if [ "$aaa" = "-D" ]
+    then
+        debug="YES"
         continue
     fi
     echo "$aaa" | grep -q '^-' && eecho "unknow switch: $aaa" && continue
@@ -207,40 +253,34 @@ then
 	test -n "$utag" && MK_TAG="${MK_TAG}-$utag"
 fi
 
+SRCDS=`pathprune $SRCDS`
+DSTDS=`pathprune $DSTDS`
+
 SRCINFO=${SRCHOST}${SRCTR}${SRCDS}
 DSTINFO=${DSTHOST}${DSTTR}${DSTDS}
 
 pecho "zfs sync tag $MK_TAG from $SRCINFO => $DSTINFO ..."
-
-sc(){
-	local msg="$@"
-	${SRCSSH}${msg}
-	return $?
-}
-
-dc(){
-	local msg="$@"
-	${DSTSSH}${msg}
-	return $?
-}
-
-ss(){
-	sc zfs $@
-	return $?
-}
-
-ds(){
-	dc zfs $@
-	return $?
-}
-
-
-ss(){
-	sc zfs $@
-	return $?
-}
-
 pecho "source information ..."
+
+srcimp=0
+SRCPOOL=`echo $SRCDS|awk -F'/' '{print $1}'`
+ss list $SRCPOOL >/dev/null 2>&1
+if [ $? -ne 0 ]
+then
+	pecho "src pool $SRCPOOL no exist, try to import ..."
+	sc zpool export -f $SRCPOOL >/dev/null 2>&1
+	sc zpool import -N -f $SRCPOOL || exit 1
+	srcimp=1
+fi
+
+ss list $DSTPOOL >/dev/null 2>&1
+if [ $? -ne 0 ]
+then
+	pecho "import $SRCPOOL failed."
+	exit 1
+else
+	pecho "src pool $SRCPOOL ready."
+fi
 
 ss list $SRCDS >/dev/null 2>&1
 if [ $? -ne 0 ]
@@ -248,43 +288,113 @@ then
 	eecho "$SRCDS no exist"
 	exit 1
 fi
-ss list -t snapshot -H -o name -r $SRCDS | sort > /tmp/zfs.src.${MK_TAG}.sn.list || exit 1
+
+cat /dev/null > /tmp/zfs.src.${MK_TAG}.sn.list || exit 1
+for oneds in `ss list -r -H -o name $SRCDS`
+do
+	ss list -t snapshot -H -o name -r $oneds | sort | uniq >> /tmp/zfs.src.${MK_TAG}.sn.list || exit 1
+done
 
 srcdslist=''
 
 # NOTE: does not sync base SRCDS 
 
-cat /dev/null > /tmp/zfs.src.${MK_TAG}.suffix.list
 dslen=${#SRCDS}
+parents=""
+prebase=''
 for onesn in `cat /tmp/zfs.src.${MK_TAG}.sn.list`
 do
+	test -n "$prebase" && parents="$parents $prebase" && prebase=""
 	suffix=${onesn:${dslen}};
 	dsname="`echo $suffix | awk -F'@' '{print $1}'`"
 	dsmark="`echo $dsname | tr '/' '_'`"
 	echo "$suffix" >> /tmp/zfs.src.${MK_TAG}.suffix-$dsmark-ds.list
 	srcdslist="$srcdslist $dsname"
+	prebase=`dirname $onesn`
+	test "$prebase" = "." && prebase=''
 done
+
+srcdslist=`item_uniq $srcdslist`
+
+parents=`item_uniq $parents`
+
+# test -n "$parents" && pecho "parents: $parents"
+
+ss list -t snapshot ${SRCDS}@${MK_TAG} >/dev/null 2>&1
+if [ $? -ne 0 ]
+then
+	ss snapshot -r ${SRCDS}@${MK_TAG} || exit 1
+else
+	pecho "src snapshot ${SRCDS}@${MK_TAG} already existed."
+fi
 
 pecho "dest information ..."
 
-ds list $DSTDS >/dev/null 2>&1
+dstimp=0
+DSTPOOL=`echo $DSTDS|awk -F'/' '{print $1}'`
+ds list $DSTPOOL >/dev/null 2>&1
 if [ $? -ne 0 ]
 then
-	pecho "$SRCDS no exist, create it ..."
-	ds create $DSTDS || exit 1
-	pecho "$DSTDS created."
+	pecho "pool $DSTPOOL no exist, try to import ..."
+	dc zpool export -f $DSTPOOL >/dev/null 2>&1
+	dc zpool import -N -f $DSTPOOL || exit 1
+	dstimp=1
 fi
 
-ds list $DSTDS >/dev/null 2>&1
+ds list $DSTPOOL >/dev/null 2>&1
 if [ $? -ne 0 ]
 then
-	eecho "create $DSTDS failed"
+	pecho "import $DSTPOOL failed."
 	exit 1
+else
+	pecho "dst $DSTPOOL ready."
 fi
 
-ds list -t snapshot -H -o name -r $DSTDS | sort > /tmp/zfs.dst.${MK_TAG}.sn.list || exit 1
+dstcreate(){
+	local dstds="$1"
+	local dsname=""
+	ds list $dstds >/dev/null 2>&1
+	if [ $? -eq 0 ]
+	then
+		return 0
+	fi
+	local item=''
+	for item in `echo $dstds | tr '/' ' '`
+	do
+		if [ -z "$dsname" ]
+		then
+			dsname="$item"
+		else
+			dsname="$dsname/$item"
+		fi
+		ds list $dsname >/dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			continue
+		else
+			pecho "$dsname no exist, create it ..."
+			ds create $dsname
+		fi
+		
+		ds list $dsname >/dev/null 2>&1
+		if [ $? -ne 0 ]
+		then
+			eecho "create $dsname failed"
+			exit 1
+		else
+			pecho "$dsname created."
+		fi
+	done
+}
 
-cat /dev/null > /tmp/zfs.dst.${MK_TAG}.suffix.list
+dstcreate $DSTDS
+
+cat /dev/null > /tmp/zfs.dst.${MK_TAG}.sn.list || exit 1
+for oneds in `ds list -r -H -o name $DSTDS`
+do
+	ds list -t snapshot -H -o name -r $oneds | sort | uniq >> /tmp/zfs.dst.${MK_TAG}.sn.list || exit 1
+done
+
 dslen=${#DSTDS}
 for onesn in `cat /tmp/zfs.dst.${MK_TAG}.sn.list`
 do
@@ -294,11 +404,7 @@ do
 	echo "$suffix" >> /tmp/zfs.dst.${MK_TAG}.suffix-$dsmark-ds.list
 done
 
-ss snapshot -r ${SRCDS}@${MK_TAG} | exit 1
-
 pecho "matching and sync ..."
-
-srcdslist=`item_uniq $srcdslist`
 
 dup="-D "
 if [ $nodedup -eq 1 ]
@@ -306,13 +412,37 @@ then
 	dup=""
 fi
 
+prg=""
+if [ $progress -eq 1 ]
+then
+	prg="-v "
+fi
+
+srcdslist="# $srcdslist"
+#pecho "dataset: $srcdslist"
 for dsname in $srcdslist
 do
-	pecho "sync $oneds($SRCDS) ..."
 	dsmark="`echo $dsname | tr '/' '_'`"
+	test "$dsname" = "#" && dsmark="" && dsname=""
 	matchfx=""
 	lastfx=''
-	if [ -s "/tmp/zfs.dst.${MK_TAG}.suffix-$dsmark-ds.list" ]
+	srcds=${SRCDS}${dsname}
+	nosend=0
+	for onep in $parents
+	do
+		if [ "$srcds" = "$onep" ]
+		then
+			wecho ""
+			wecho "parent dataset skipped: $srcds"
+			wecho ""
+			nosend=1
+			break
+		fi
+	done
+	test "$nosend" -ne 0 && continue
+	pecho "sync $srcds ..."
+
+	if [ -s "/tmp/zfs.dst.${MK_TAG}.suffix-$dsmark-ds.list" -a -s "/tmp/zfs.src.${MK_TAG}.suffix-$dsmark-ds.list" ]
 	then
 		while read srcfx
 		do
@@ -323,40 +453,111 @@ do
 				then
 					matchfx=$dstfx
 					# do not break, find the last match
+					test "$debug" = "YES" && pecho "MATCH, last matchfx: $matchfx"
+				else
+					test "$debug" = "YES" && pecho "mismatch, src $srcfx, dst $dstfx, last matchfx: $matchfx"
 				fi
 			done < /tmp/zfs.dst.${MK_TAG}.suffix-$dsmark-ds.list
 			#
 		done < /tmp/zfs.src.${MK_TAG}.suffix-$dsmark-ds.list
+	else
+		test "$debug" = "YES" && pecho "/tmp/zfs.dst.${MK_TAG}.suffix-$dsmark-ds.list, /tmp/zfs.src.${MK_TAG}.suffix-$dsmark-ds.list no existed"
+		test "$debug" = "YES" && ls -alh /tmp/zfs.src.${MK_TAG}.suffix-$dsmark-ds.list
+		test "$debug" = "YES" && ls -alh /tmp/zfs.dst.${MK_TAG}.suffix-$dsmark-ds.list
 	fi
+
+	dstcreate ${DSTDS}$dsname
+
+	srcsnapshot="${SRCDS}${dsname}@${MK_TAG}"
+
+	ss list -t snapshot ${srcsnapshot} >/dev/null 2>&1
+	if [ $? -ne 0 ]
+	then
+		ss snapshot ${srcsnapshot} | exit 1
+		pecho "src snapshot ${srcsnapshot} created."
+	fi
+
 	if [ -z "$matchfx" -o -z "$lastfx" ]
 	then
-		wecho "snapshots mismatch, send ${SRCDS}${dsname}@${MK_TAG} to ${DSTDS}$dsname in $DSTINFO ..."
-		ss send $dup-v ${SRCDS}${dsname}@${MK_TAG} | ds recv -F ${DSTDS}$dsname
+		wecho ""
+		wecho "snapshots out of sync, full sync ${SRCDS}${dsname}@${MK_TAG} to ${DSTDS}$dsname in $DSTINFO ..."
+		wecho ""
+		ds list ${DSTDS}$dsname >/dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			pecho "destroy dest befor sync: ${DSTDS}$dsname ..."
+			ds destroy -rf ${DSTDS}$dsname || exit 1
+
+			# pecho "destroy snapshot in dest ${DSTDS}$dsname ..."
+			# for onedstsn in `ds list -t snapshot -H -o name -r ${DSTDS}$dsname`
+			# do
+			# 	ds destroy -rf $onedstsn || exit 1
+			# 	pecho "$onedstsn"
+			# done
+		fi
+		ss send $dup$prg ${SRCDS}${dsname}@${MK_TAG} | ds recv -F ${DSTDS}$dsname
 		if [ $? -ne 0 ]
 		then
-			eecho "send ${SRCDS}${dsname}@${MK_TAG} to ${DSTDS}$dsname in $DSTINFO failed, re-try ..."
-			ds list ${DSTDS}$dsname >/dev/null 2>&1
-			if [ $? -eq 0 ]
-			then
-				ds destroy -rf ${DSTDS}$dsname || exit 1
-			fi
-			ss send $dup-v ${SRCDS}${dsname}@${MK_TAG} | ds recv -F ${DSTDS}$dsname
-			if [ $? -ne 0 ]
-			then
-				eecho "re-try send ${SRCDS}${dsname}@${MK_TAG} to ${DSTDS}$dsname in $DSTINFO failed."
-				exit 1
-			fi
+			eecho "full sync ${SRCDS}${dsname}@${MK_TAG} to ${DSTDS}$dsname in $DSTINFO failed."
+			exit 1
 		fi
 	else
 		pecho "sync $SRCINFO($matchfx - $dsname@$MK_TAG) to $DSTINFO ..."
-		ss send $dup-v -I $SRCDS${matchfx} $SRCDS${dsname}@${MK_TAG} | ds recv -F ${DSTDS}$dsname
+		ss send $dup$prg -I $SRCDS${matchfx} $SRCDS${dsname}@${MK_TAG} | ds recv -F ${DSTDS}$dsname
 		if [ $? -ne 0 ]
 		then
 			eecho "sync $SRCINFO($matchfx - $dsname@$MK_TAG) to $DSTINFO failed."
-			exit 1
+			pecho "re-try full sync ..."
+			ds list ${DSTDS}$dsname >/dev/null 2>&1
+			if [ $? -eq 0 ]
+			then
+				pecho "destroy snapshot in dest ${DSTDS}$dsname ..."
+				for onedstsn in `ds list -t snapshot -H -o name -r ${DSTDS}$dsname`
+				do
+					ds destroy -rf $onedstsn || exit 1
+					pecho "$onedstsn"
+				done
+			fi
+			ss send $dup$prg ${SRCDS}${dsname}@${MK_TAG} | ds recv -F ${DSTDS}$dsname
+			if [ $? -ne 0 ]
+			then
+				eecho "re-try full sync ${SRCDS}${dsname}@${MK_TAG} to ${DSTDS}$dsname in $DSTINFO failed."
+				exit 1
+			fi
+			pecho "full sync done."
 		fi
 	fi
 done
+if [ $srcimp -ne 0 ]
+then
+	if [ -n "$ZBAK_DELAY_EXPORT_FILE" ]
+	then
+		echo "${SRCHOST}${SRCTR}$SRCPOOL" >> $ZBAK_DELAY_EXPORT_FILE
+	else
+		sc zpool export -f $SRCPOOL >/dev/null 2>&1
+		if [ $? -ne 0 ]
+		then
+			pecho "src pool $SRCPOOL export failed."
+		else
+			pecho "src pool $SRCPOOL exported."
+		fi
+	fi
+fi
+if [ $dstimp -ne 0 ]
+then
+	if [ -n "$ZBAK_DELAY_EXPORT_FILE" ]
+	then
+		echo "${DSTHOST}${DSTTR}$DSTPOOL" >> $ZBAK_DELAY_EXPORT_FILE
+	else
+		dc zpool export -f $DSTPOOL >/dev/null 2>&1
+		if [ $? -ne 0 ]
+		then
+			pecho "dest pool $DSTPOOL export failed."
+		else
+			pecho "dest pool $DSTPOOL exported."
+		fi
+	fi
+fi
 pecho ""
 pecho "all done."
 pecho ""
