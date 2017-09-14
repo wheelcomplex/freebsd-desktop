@@ -29,9 +29,20 @@ do
         needval="$aaa"
         continue
     fi
+    if [ "$aaa" = "-R" ]
+    then
+        shut="$aaa"
+		echo ""
+		echo "WARNING: will reboot after backup"
+		echo ""
+        continue
+    fi
     if [ "$aaa" = "-S" ]
     then
         shut="$aaa"
+		echo ""
+		echo "WARNING: will shutdown after backup"
+		echo ""
         continue
     fi
     if [ "$aaa" = "-x" ]
@@ -235,11 +246,55 @@ then
 		fi
 	done
 fi
-if [ -n "$shut" ]
+if [ "$shut" = "-R" ]
+then
+	echo "reboot after backup ..."
+	sleep 5
+	for onehost in $REMOTES
+	do
+		netstat -nr | grep 'link#' | grep -q "^${onehost}"
+		if [ $? -eq 0 ]
+		then
+			localip="$onehost"
+			echo "local ip, reboot later: $onehost" && continue
+		fi
+		ping -t 2 -c 2 $onehost >/dev/null
+		if [ $? -ne 0 ]
+		then
+		    echo "error: ping $onehost failed."
+		    continue
+		fi
+		ssh $onehost init 6
+	done
+	sleep 5
+	sudo init 6
+	sleep 15
+	echo "failed to reboot."
+	exit 1
+fi
+if [ "$shut" = "-S" ]
 then
 	echo "shutdown after backup ..."
 	sleep 5
+	for onehost in $REMOTES
+	do
+		netstat -nr | grep 'link#' | grep -q "^${onehost}"
+		if [ $? -eq 0 ]
+		then
+			localip="$onehost"
+			echo "local ip, shutdown later: $onehost" && continue
+		fi
+		ssh $onehost init 0
+		ping -t 2 -c 2 $onehost >/dev/null
+		if [ $? -ne 0 ]
+		then
+		    echo "error: ping $onehost failed."
+		    continue
+		fi
+	done
+	sleep 5
 	sudo init 0
+	sleep 15
 	echo "failed to shutdown."
 	exit 1
 fi
