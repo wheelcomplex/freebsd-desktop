@@ -593,6 +593,8 @@ eval $vmvar
 dispinfo=`sysctl -a | grep 'framebuffer' | grep 'fbcon size:'| awk -F'fbcon size: ' '{print $2}'|tr ',' ' '| awk '{print $1} {print $3}'`
 VM_VNC_WIDTH=`echo $dispinfo | awk '{print $1}'`
 VM_VNC_HIGH=`echo $dispinfo | awk '{print $2}'`
+test -z "$VM_VNC_WIDTH" && VM_VNC_WIDTH=1280
+test -z "$VM_VNC_HIGH" && VM_VNC_HIGH=720
 if [ "$VM_VNC_WIDTH" -gt 1280 ]
 then
 	VM_VNC_WIDTH=1280
@@ -763,7 +765,7 @@ pecho ""
 # WARNING: do not use -l com1,stdio and & to run bhyve in background, will block networking
 # NOTE: remove -s 31,lpc will crash with: 
 # -S for pci passthrough
-export VM_CMD="$VM_SUDO_BHYVE -S -A -H -s 0,hostbridge -s 29,fbuf,tcp=${VM_VNC_BIND}:${VM_VNC_PORT},w=$VM_VNC_WIDTH,h=${VM_VNC_HIGH}$VM_VNC_WAIT -s 31,lpc $VM_CMD_OPTS"
+export VM_CMD="$VM_SUDO_BHYVE -A -H -s 0,hostbridge -s 29,fbuf,tcp=${VM_VNC_BIND}:${VM_VNC_PORT},w=$VM_VNC_WIDTH,h=${VM_VNC_HIGH}$VM_VNC_WAIT -s 31,lpc $VM_CMD_OPTS"
 VM_CMD="$VM_CMD -m $VM_MEM"
 VM_CMD="$VM_CMD -c $VM_CPUS"
 VM_CMD="$VM_CMD -l bootrom,/usr/local/share/uefi-firmware/BHYVE_UEFI.fd"
