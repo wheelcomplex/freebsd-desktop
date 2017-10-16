@@ -939,11 +939,13 @@ EOF
 cat /boot/loader.conf
 
 #
+# http://www.freshports.org/graphics/drm-next-kmod
+pkg install -yf drm-next-kmod
 
 cat <<'EOF' >> /etc/rc.conf
 # kernel modules
 # if_iwm for intel 3165 wifi/Intel Corporation Wireless 7265 (rev 61)
-kld_list="fuse linux linux64 nmdm vmm wlan wlan_xauth wlan_ccmp wlan_tkip wlan_acl wlan_amrr wlan_rssadapt if_rtwn if_rtwn_usb if_iwm geom_uzip if_bridge bridgestp fdescfs linux linprocfs snd_driver coretemp vboxdrv"
+kld_list="/boot/modules/i915kms.ko fuse linux linux64 nmdm vmm wlan wlan_xauth wlan_ccmp wlan_tkip wlan_acl wlan_amrr wlan_rssadapt if_rtwn if_rtwn_usb if_iwm geom_uzip if_bridge bridgestp fdescfs linux linprocfs snd_driver coretemp vboxdrv"
 #
 sshd_enable="YES"
 moused_enable="YES"
