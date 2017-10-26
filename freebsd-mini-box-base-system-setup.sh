@@ -4869,6 +4869,26 @@ export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/qt5/:/home/david/liteide
 # http://stackoverflow.com/questions/30709056/libpng-warning-iccp-not-recognizing-known-srgb-profile-that-has-been-edited
 
 
+# nfs server
+cat <<'EOF'> /etc/exports
+# https://www.freebsd.org/doc/handbook/network-nfs.html
+# the format is different with linux
+# https://www.freebsd.org/cgi/man.cgi?query=exports&sektion=5&manpath=freebsd-release-ports
+/home -alldirs -maproot=david -network=172.16.0.0/24
+#
+EOF
 
+cat <<'EOF' >> /etc/rc.conf
+#
+rpcbind_enable="YES"
+nfs_server_enable="YES"
+mountd_enable="YES"
+mountd_flags="-r"
+#
+EOF
 
+service nfsd start
 
+service mountd reload
+
+showmount -e
