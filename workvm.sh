@@ -191,10 +191,11 @@ update_console_ip(){
     fi
 
     # got console ip from dnsmasq
-    pecho "fetch console ip($VM_CONSOLE_MAC) from dnsmasq lease ..."
-    VM_CONSOLE_IP=`cat /var/db/dnsmasq.leases | grep -i "${VM_CONSOLE_MAC}$"| awk '{print $3}'| head -n1`
+    pecho "fetch console ip($VM_CONSOLE_MAC) from dnsmasq lease /var/db/dnsmasq.leases ..."
+    VM_CONSOLE_IP=""
     for item in `seq 0 90`
     do
+        VM_CONSOLE_IP=`cat /var/db/dnsmasq.leases | grep -i " ${VM_CONSOLE_MAC} "| awk '{print $3}'| head -n1`
         if [ -z "$VM_CONSOLE_IP" ]
         then
             sleep 1
@@ -202,7 +203,6 @@ update_console_ip(){
         else
             break
         fi
-        VM_CONSOLE_IP=`cat /var/db/dnsmasq.leases | grep -i "${VM_CONSOLE_MAC}$"| awk '{print $3}'| head -n1`
     done
     if [ -z "$VM_CONSOLE_IP" ]
     then
@@ -267,7 +267,7 @@ bgrdp(){
     pecho "RDP: user $VM_RDP_USER, screen $VM_RDP_WH, IP $VM_CONSOLE_IP"
     pecho ""
     # -x 0x80 for font smooth, 0x81 0x8f
-    export VM_RDP_BASE="rdesktop -r sound:local -x 0x80 -a 32 -f -k en-us -D"
+    export VM_RDP_BASE="rdesktop -r sound:local -x 0x80 -a 24 -f -k en-us -D"
 	# runvnc
     #export VM_RDP_VIEWER_CMD="$VM_RDP_BASE -T $VM_NAME -u $VM_RDP_USER -p $VM_RDP_PASSWORD -z -r clipboard:PRIMARYCLIPBOARD -g $VM_RDP_WH $VM_CONSOLE_IP"
     export VM_RDP_VIEWER_CMD="$VM_RDP_BASE -T $VM_NAME -u $VM_RDP_USER -p $VM_RDP_PASSWORD -z -r clipboard:PRIMARYCLIPBOARD $VM_CONSOLE_IP"
@@ -307,7 +307,7 @@ bgrdp(){
     for aaa in `seq 0 30`
     do
         echo -n '.'
-        ping -t 1 -c 1 $VM_CONSOLE_IP >/dev/null 2>&1 && pecho " $VM_CONSOLE_IP alive ..." && break
+        ping -t 1 -c 1 $VM_CONSOLE_IP >/dev/null 2>&1 && pecho "$VM_CONSOLE_IP alive ..." && break
         sleep 1
     done
 
