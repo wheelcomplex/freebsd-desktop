@@ -20,15 +20,6 @@ tolower(){
     echo "${msg,,}"
 }
 
-item_uniq_r(){
-	local all="$@"
-	local aaa=''
-	for aaa in $all
-	do
-		echo "$aaa"
-	done | sort -r | uniq
-}
-
 item_uniq(){
 	local all="$@"
 	local res="`doitem_uniq $all`"
@@ -147,8 +138,12 @@ usage(){
     exit 1
 }
 
+# 30 days
+export EXPIRETS=`expr 30 \* 24 \* 60 \* 60`
 export xtrace=""
+export CLEAN=""
 export debug=""
+export snapshot="0"
 export progress="0"
 export nodedup="0"
 export utag=""
@@ -175,6 +170,11 @@ do
         needval="$aaa"
         continue
     fi
+    if [ "$aaa" = "-T" ]
+    then
+        snapshot="1"
+        continue
+    fi
     if [ "$aaa" = "-v" ]
     then
         progress="1"
@@ -194,6 +194,11 @@ do
     if [ "$aaa" = "-D" ]
     then
         debug="YES"
+        continue
+    fi
+    if [ "$aaa" = "-C" ]
+    then
+        CLEAN="YES"
         continue
     fi
     echo "$aaa" | grep -q '^-' && eecho "unknow switch: $aaa" && continue
@@ -289,10 +294,66 @@ then
 	exit 1
 fi
 
+cleanshapshot(){
+	local site="$1"
+	local dstds="$2"
+	local scmd=ss
+	if [ "$site" = "remote" ]
+	then
+		scmd=ds
+	fi
+	local limits=`date +%s`
+	let limits=${limits}-${EXPIRETS}
+	limits=`date -j -f %s ${limits} +%Y%m%d%H%M%S`
+	pecho "cleaning snapshots old then ${EXPIRETS}($limits) for $site $dstds ..."
+
+	$scmd list -H -o name,creation -s creation $dstds | head -n 1 > /tmp/zfs.${site}.${MK_TAG}.clean.list || exit 1
+	local oname=""
+	local ots=""
+	local sts=""
+	read oname ots < /tmp/zfs.${site}.${MK_TAG}.clean.list
+	let sts=${ots:0:14}+1-1 2>/dev/null
+	if [ $? -ne 0 ]
+	then
+		pecho "invalid source zfs list output for creation time(need patched zfs): $ots"
+		exit 1
+	fi
+	$scmd list -t snapshot -H -o name,creation -s creation -r $dstds > /tmp/zfs.${site}.${MK_TAG}.clean.list || exit 1
+	while read oname ots; 
+	do 
+		sts=${ots:0:14}
+		if [ $sts -ge $limits ]
+		then
+			continue
+		fi
+		pecho "clean $sts - $oname"
+		$scmd destroy -f $oname || exit 1
+	done < /tmp/zfs.${site}.${MK_TAG}.clean.list
+	pecho "clean $site $dstds done."
+	return 0
+}
+
+if [ "$CLEAN" = "YES" ]
+then
+	cleanshapshot source $SRCDS || exit 1
+fi
+
+if [ "$snapshot" = "1" ]
+then
+	ss list -t snapshot ${SRCDS}@${MK_TAG} >/dev/null 2>&1
+	if [ $? -ne 0 ]
+	then
+		ss snapshot -r ${SRCDS}@${MK_TAG} || exit 1
+		pecho "src snapshot ${SRCDS}@${MK_TAG} created."
+	else
+		pecho "src snapshot ${SRCDS}@${MK_TAG} already existed."
+	fi
+fi
+
 cat /dev/null > /tmp/zfs.src.${MK_TAG}.sn.list || exit 1
 for oneds in `ss list -r -H -o name $SRCDS`
 do
-	ss list -t snapshot -H -o name -r $oneds | sort | uniq >> /tmp/zfs.src.${MK_TAG}.sn.list || exit 1
+	ss list -t snapshot -H -o name -S creation -r $oneds | uniq >> /tmp/zfs.src.${MK_TAG}.sn.list || exit 1
 done
 
 srcdslist=''
@@ -319,14 +380,6 @@ srcdslist=`item_uniq $srcdslist`
 parents=`item_uniq $parents`
 
 # test -n "$parents" && pecho "parents: $parents"
-
-ss list -t snapshot ${SRCDS}@${MK_TAG} >/dev/null 2>&1
-if [ $? -ne 0 ]
-then
-	ss snapshot -r ${SRCDS}@${MK_TAG} || exit 1
-else
-	pecho "src snapshot ${SRCDS}@${MK_TAG} already existed."
-fi
 
 pecho "dest information ..."
 
@@ -389,10 +442,15 @@ dstcreate(){
 
 dstcreate $DSTDS
 
+if [ "$CLEAN" = "YES" ]
+then
+	cleanshapshot dest $DSTDS || exit 1
+fi
+
 cat /dev/null > /tmp/zfs.dst.${MK_TAG}.sn.list || exit 1
 for oneds in `ds list -r -H -o name $DSTDS`
 do
-	ds list -t snapshot -H -o name -r $oneds | sort | uniq >> /tmp/zfs.dst.${MK_TAG}.sn.list || exit 1
+	ds list -t snapshot -H -o name -S creation -r $oneds | uniq >> /tmp/zfs.dst.${MK_TAG}.sn.list || exit 1
 done
 
 dslen=${#DSTDS}
@@ -425,7 +483,7 @@ do
 	dsmark="`echo $dsname | tr '/' '_'`"
 	test "$dsname" = "#" && dsmark="" && dsname=""
 	matchfx=""
-	lastfx=''
+	firstfx=""
 	srcds=${SRCDS}${dsname}
 	nosend=0
 	for onep in $parents
@@ -442,89 +500,99 @@ do
 	test "$nosend" -ne 0 && continue
 	pecho "sync $srcds ..."
 
-	if [ -s "/tmp/zfs.dst.${MK_TAG}.suffix-$dsmark-ds.list" -a -s "/tmp/zfs.src.${MK_TAG}.suffix-$dsmark-ds.list" ]
-	then
-		while read srcfx
+	touch "/tmp/zfs.dst.${MK_TAG}.suffix-$dsmark-ds.list" || exit 1
+	touch "/tmp/zfs.src.${MK_TAG}.suffix-$dsmark-ds.list" || exit 1
+
+	while read srcfx
+	do
+		test -z "$firstfx" && firstfx=$srcfx && test "$debug" = "YES" && pecho "first snapshot: $firstfx"
+		while read dstfx
 		do
-			lastfx=$srcfx
-			while read dstfx
-			do
-				if [ "$srcfx" = "$dstfx" ]
-				then
-					matchfx=$dstfx
-					# do not break, find the last match
-					test "$debug" = "YES" && pecho "MATCH, last matchfx: $matchfx"
-				else
-					test "$debug" = "YES" && pecho "mismatch, src $srcfx, dst $dstfx, last matchfx: $matchfx"
-				fi
-			done < /tmp/zfs.dst.${MK_TAG}.suffix-$dsmark-ds.list
-			#
-		done < /tmp/zfs.src.${MK_TAG}.suffix-$dsmark-ds.list
-	else
-		test "$debug" = "YES" && pecho "/tmp/zfs.dst.${MK_TAG}.suffix-$dsmark-ds.list, /tmp/zfs.src.${MK_TAG}.suffix-$dsmark-ds.list no existed"
-		test "$debug" = "YES" && ls -alh /tmp/zfs.src.${MK_TAG}.suffix-$dsmark-ds.list
-		test "$debug" = "YES" && ls -alh /tmp/zfs.dst.${MK_TAG}.suffix-$dsmark-ds.list
-	fi
+			if [ "$srcfx" = "$dstfx" ]
+			then
+				matchfx=$dstfx
+				# break, find the newest match
+				test "$debug" = "YES" && pecho "MATCH, last matchfx: $matchfx"
+				break
+			else
+				test "$debug" = "YES" && pecho "mismatch, src $srcfx, dst $dstfx, last matchfx: $matchfx"
+			fi
+		done < /tmp/zfs.dst.${MK_TAG}.suffix-$dsmark-ds.list
+		#
+		# break, find the newest match
+		test -n "$matchfx" && break
+	done < /tmp/zfs.src.${MK_TAG}.suffix-$dsmark-ds.list
 
 	dstcreate ${DSTDS}$dsname
 
-	srcsnapshot="${SRCDS}${dsname}@${MK_TAG}"
-
-	ss list -t snapshot ${srcsnapshot} >/dev/null 2>&1
-	if [ $? -ne 0 ]
+	if [ -z "$firstfx" ]
 	then
-		ss snapshot ${srcsnapshot} | exit 1
-		pecho "src snapshot ${srcsnapshot} created."
+		pecho "src snapshot not exist, creating ..."
+		firstfx="${dsname}@${MK_TAG}"
+		matchfx=""
+		srcsnapshot="${SRCDS}${firstfx}"
+	
+		ss list -t snapshot ${srcsnapshot} >/dev/null 2>&1
+		if [ $? -ne 0 ]
+		then
+			ss snapshot ${srcsnapshot} || exit 1
+			ss list -t snapshot ${srcsnapshot} >/dev/null 2>&1
+			if [ $? -ne 0 ]
+			then
+				pecho "src snapshot ${srcsnapshot} failed."
+				exit 1
+			else
+				pecho "src snapshot ${srcsnapshot} created."
+			fi
+		else
+			pecho "src snapshot exist ? should not happen"
+			exit 1
+		fi
 	fi
 
-	if [ -z "$matchfx" -o -z "$lastfx" ]
+	if [ -z "$matchfx" ]
 	then
-		wecho ""
-		wecho "snapshots out of sync, full sync ${SRCDS}${dsname}@${MK_TAG} to ${DSTDS}$dsname in $DSTINFO ..."
-		wecho ""
 		ds list ${DSTDS}$dsname >/dev/null 2>&1
 		if [ $? -eq 0 ]
 		then
 			pecho "destroy dest befor sync: ${DSTDS}$dsname ..."
 			ds destroy -rf ${DSTDS}$dsname || exit 1
-
-			# pecho "destroy snapshot in dest ${DSTDS}$dsname ..."
-			# for onedstsn in `ds list -t snapshot -H -o name -r ${DSTDS}$dsname`
-			# do
-			# 	ds destroy -rf $onedstsn || exit 1
-			# 	pecho "$onedstsn"
-			# done
 		fi
-		ss send $dup$prg ${SRCDS}${dsname}@${MK_TAG} | ds recv -F ${DSTDS}$dsname
+		wecho ""
+		wecho "snapshots out of sync, full sync ${SRCDS}${firstfx} to ${DSTDS}$dsname in $DSTINFO ..."
+		wecho ""
+		ss send $dup$prg ${SRCDS}${firstfx} | ds recv -F ${DSTDS}$dsname
 		if [ $? -ne 0 ]
 		then
-			eecho "full sync ${SRCDS}${dsname}@${MK_TAG} to ${DSTDS}$dsname in $DSTINFO failed."
+			eecho "full sync ${SRCDS}${firstfx} to ${DSTDS}$dsname in $DSTINFO failed."
 			exit 1
 		fi
 	else
-		pecho "sync $SRCINFO($matchfx - $dsname@$MK_TAG) to $DSTINFO ..."
-		ss send $dup$prg -I $SRCDS${matchfx} $SRCDS${dsname}@${MK_TAG} | ds recv -F ${DSTDS}$dsname
+		if [ "$firstfx" = "$matchfx" ]
+		then
+			pecho "destination $DSTINFO ${DSTDS}$dsname already synced with source: $SRCINFO ${SRCDS}${firstfx}"
+			pecho ""
+			continue
+		fi
+		pecho "sync $SRCINFO($matchfx - $firstfx) to $DSTINFO ..."
+		ss send $dup$prg -I $SRCDS${matchfx} $SRCDS${firstfx} | ds recv -F ${DSTDS}$dsname
 		if [ $? -ne 0 ]
 		then
-			eecho "sync $SRCINFO($matchfx - $dsname@$MK_TAG) to $DSTINFO failed."
+			eecho "sync $SRCINFO($matchfx - $firstfx) to $DSTINFO failed."
 			pecho "re-try full sync ..."
 			ds list ${DSTDS}$dsname >/dev/null 2>&1
 			if [ $? -eq 0 ]
 			then
 				pecho "destroy snapshot in dest ${DSTDS}$dsname ..."
-				for onedstsn in `ds list -t snapshot -H -o name -r ${DSTDS}$dsname`
-				do
-					ds destroy -rf $onedstsn || exit 1
-					pecho "$onedstsn"
-				done
+				ds destroy -rf ${DSTDS}$dsname || exit 1
 			fi
-			ss send $dup$prg ${SRCDS}${dsname}@${MK_TAG} | ds recv -F ${DSTDS}$dsname
+			ss send $dup$prg ${SRCDS}${firstfx} | ds recv -F ${DSTDS}$dsname
 			if [ $? -ne 0 ]
 			then
-				eecho "re-try full sync ${SRCDS}${dsname}@${MK_TAG} to ${DSTDS}$dsname in $DSTINFO failed."
+				eecho "re-try full sync ${SRCDS}${firstfx} to ${DSTDS}$dsname in $DSTINFO failed."
 				exit 1
 			fi
-			pecho "full sync done."
+			pecho "full sync(re-try) done."
 		fi
 	fi
 done

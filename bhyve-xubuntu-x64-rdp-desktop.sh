@@ -5,7 +5,7 @@
 
 # for xubuntu x64 16.04
 
-apt install -y curl
+apt install -y curl vim geany
 
 #
 touch /etc/rc.local
@@ -299,3 +299,69 @@ sudo systemctl set-default multi-user.target
 sudo systemctl disable lightdm
 
 # 16.04 is ok, 17.10 show black screen when connect by rdesktop from FreeBSD
+
+# nfs client/home
+# https://www.digitalocean.com/community/tutorials/how-to-set-up-an-nfs-mount-on-ubuntu-16-04
+
+apt-get update && apt-get install -y nfs-common
+
+# list remote exports
+showmount -e 172.16.254.254
+
+## apps
+
+apt-get install -y sysstat gitk gparted filezilla geany
+
+# nodejs
+# https://nodejs.org/en/download/package-manager/#debian-and-ubuntu-based-linux-distributions
+
+# NOTE: bluemix is using 6.x
+curl -sL https://deb.nodesource.com/setup_6.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+#
+curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+sudo apt-get install -y build-essential
+
+sudo npm install -g nodemon express serve-favicon express-session
+sudo npm install -g passport passport-local mongoose passport-local-mongoose 
+
+# visual studio code
+# https://code.visualstudio.com/docs/setup/linux
+
+echo 'fs.inotify.max_user_watches=524288' >> /etc/sysctl.conf
+
+curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
+
+sudo mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
+
+sudo sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list'
+
+sudo apt-get update && sudo apt-get install code
+
+# program name = code
+# run for normal user
+xdg-mime default code.desktop text/plain
+
+# run
+sudo update-alternatives --set editor /usr/bin/code
+
+# google chrome
+# https://askubuntu.com/questions/510056/how-to-install-google-chrome
+wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+
+echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' | sudo tee /etc/apt/sources.list.d/google-chrome.list
+
+apt-get update && apt-get install -y google-chrome-stable
+
+# Cloud Foundry for bluemix
+# https://console.bluemix.net/docs/cli/reference/bluemix_cli/get_started.html#getting-started
+
+mkdir tmp && wget https://clis.ng.bluemix.net/download/bluemix-cli/latest/linux64 -O tmp/bluemixcli.tar.gz && cd tmp && tar xfz bluemixcli.tar.gz && \
+cd Bluemix_CLI && sudo ./install_bluemix_cli
+# bx is ready
+
+
+

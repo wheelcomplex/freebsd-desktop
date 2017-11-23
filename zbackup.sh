@@ -177,7 +177,7 @@ do
 
 			echo "info: sync $SRC to $onehost($DST) ..."
 
-			backupzfs.sh -v $SRC ${onehost}@$DST > $logfile 2>&1
+			backupzfs.sh -T -v $SRC ${onehost}@$DST > $logfile 2>&1
 	    	if [ $? -ne 0 ]
 	    	then
 	    	    echo "error: send to $onehost failed."
@@ -201,7 +201,7 @@ do
 			fi
 			echo "info: sync $SRC to local $onehost($DST) ..."
 
-			backupzfs.sh -v $SRC $DST > $logfile 2>&1
+			backupzfs.sh -T -v $SRC $DST > $logfile 2>&1
 	    	if [ $? -ne 0 ]
 	    	then
 	    	    echo "error: send to $onehost failed."
@@ -284,13 +284,13 @@ then
 			localip="$onehost"
 			echo "local ip, shutdown later: $onehost" && continue
 		fi
-		ssh $onehost init 0
 		ping -t 2 -c 2 $onehost >/dev/null
 		if [ $? -ne 0 ]
 		then
 		    echo "error: ping $onehost failed."
 		    continue
 		fi
+		ssh $onehost init 0
 	done
 	sleep 5
 	sudo init 0

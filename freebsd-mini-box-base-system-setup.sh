@@ -4870,13 +4870,7 @@ export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/qt5/:/home/david/liteide
 
 
 # nfs server
-cat <<'EOF'> /etc/exports
-# https://www.freebsd.org/doc/handbook/network-nfs.html
-# the format is different with linux
-# https://www.freebsd.org/cgi/man.cgi?query=exports&sektion=5&manpath=freebsd-release-ports
-/home -alldirs -maproot=david -network=172.16.0.0/24
-#
-EOF
+
 
 cat <<'EOF' >> /etc/rc.conf
 #
@@ -4887,7 +4881,16 @@ mountd_flags="-r"
 #
 EOF
 
-service nfsd start
+
+cat <<'EOF'> /etc/exports
+# https://www.freebsd.org/doc/handbook/network-nfs.html
+# the format is different with linux
+# https://www.freebsd.org/cgi/man.cgi?query=exports&sektion=5&manpath=freebsd-release-ports
+/home -alldirs -network 172.16.254.0 -mask 255.255.255.0
+#
+EOF
+
+service nfsd restart
 
 service mountd reload
 
